@@ -8,12 +8,11 @@ from PagesListExtractor import extract_pdf_text
 liste_num_pages = extract_pdf_text("data/CIS_Ubuntu_Linux_24.04_LTS_Benchmark_v2.0.0.pdf")
 
 def RuleExtractor(liste_num_pages):
-    text_brut=""
     with pdfplumber.open("data/CIS_Ubuntu_Linux_24.04_LTS_Benchmark_v2.0.0.pdf") as pdf:
         for i in range(len(liste_num_pages)-1):
             if(liste_num_pages[i] in {61,73,82,89,97,106,115,124,146,150,161,167,211,233,260,316,329,335,343,352,374,378,389,408,484,517,529,589,604,614,626,636,661,669,680,697,716,728,751,772,778,789,799,881,904,914,946,973}):
                 continue
-            text_Rule=""
+            texte_Rule=""
             debut = liste_num_pages[i]
             fin = liste_num_pages[i+1]
             for j in range(debut, fin):
@@ -23,13 +22,7 @@ def RuleExtractor(liste_num_pages):
                     lignes=texte.split("\n")
                     lignes_propres=lignes[:-2]
                     texte="\n".join(lignes_propres)
-                    text_Rule += texte + "\n"
-            remediation=remediation_extractor(text_Rule)
-            text_brut+=remediation+"hahaa\nhahaa\nhahaa\nhahaa\nhahaa\nhahaa\nhahaa\n"
-            
-    f=open("res.txt","w")
-    f.write(text_brut)
-    f.close()
+                    texte_Rule += texte + "\n"
     
 
 def header_extractor(text_Rule):
@@ -77,7 +70,7 @@ def description_extractor(texte_Rule):
 
 
 def rationale_extractor(texte_Rule):
-    start=texte_Rule.find("Rationale:")+len("Rationale")+1
+    start=texte_Rule.find("Rationale:")+len("Rationale:")+1
     if(texte_Rule.find("Impact:",start)!=-1):
         end=texte_Rule.find("Impact:",start)-1
     else:
@@ -109,6 +102,39 @@ def remediation_extractor(texte_Rule):
     else:
         end=texte_Rule.find("References:",start)-1
     return texte_Rule[start:end]
+
+
+def default_value_extractor(texte_Rule):
+    start=texte_Rule.find("Default Value:")
+    if start==-1:
+        return ""
+    else:
+        start+=len("Default Value:")+1
+        end=texte_Rule.find("References:",start)-1
+        return texte_Rule[start:end]
+    
+
+def references_extractor(texte_Rule):
+    start=texte_Rule.find("References:")+len("References:")+1
+    end=texte_Rule.find("Additional Information:",start)
+    if end==-1:
+        end=texte_Rule.find("CIS Controls:",start)
+    end=end-1
+    return texte_Rule[start:end]
+
+
+def additional_info_extractor(texte_Rule):
+    start=texte_Rule.find("Additional Information:")
+    if start==-1:
+        return ""
+    start+=len("Additional Information:")+1
+    end=texte_Rule.find("CIS Controls:",start)-1
+    return texte_Rule[start:end]
+
+
+def cis_controls_extractor(texte_Rule):
+    start=texte_Rule.find("CIS Controls:")+len("CIS Controls:")+1
+    return texte_Rule[start:]
 
 
 RuleExtractor(liste_num_pages)
