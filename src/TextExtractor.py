@@ -7,7 +7,7 @@ def extractor():
             page=pdf.pages[i]
             texte=page.extract_text()
             texte_brut+=texte+"\n"
-    f=open("res.txt","w")
+    f=open("output/res.txt","w")
     f.write(texte_brut)
     f.close()
 extractor()

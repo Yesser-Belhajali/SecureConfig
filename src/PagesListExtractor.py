@@ -13,10 +13,10 @@ def extract_pdf_text(path):
             texte_page=nettoyage_page(texte_page)
             if texte_page:
                 texte_brut+=texte_page+"\n"
-    f=open("res.txt","w")
+    f=open("output/res.txt","w")
     f.write(texte_brut)
     f.close()
-    with open("res.txt","r") as res:
+    with open("output/res.txt","r") as res:
         for ligne in res:
             match=re.search(r"(\d+)\s*$",ligne)
             if match:
