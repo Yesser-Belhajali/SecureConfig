@@ -3,6 +3,8 @@ import re
 
 from PagesListExtractor import extract_pdf_text
 
+
+
 liste_num_pages = extract_pdf_text("data/CIS_Ubuntu_Linux_24.04_LTS_Benchmark_v2.0.0.pdf")
 
 def RuleExtractor(liste_num_pages):
@@ -22,15 +24,12 @@ def RuleExtractor(liste_num_pages):
                     lignes_propres=lignes[:-2]
                     texte="\n".join(lignes_propres)
                     text_Rule += texte + "\n"
-            header=header_extractor(text_Rule)
-            assessment=assessment_status_extractor(header)
-            print(header,assessment)
-            """id=id_extractor(header)
-            titre=title_extractor(header)
-            text_brut+=id+"   haha   "+titre+"   haha   "+str(assessment)+"\n"
+            description=description_extractor(text_Rule)
+            text_brut+=description+"hahaa\nhahaa\nhahaa\nhahaa\nhahaa\nhahaa\nhahaa\n"
+            
     f=open("res.txt","w")
     f.write(text_brut)
-    f.close()"""
+    f.close()
     
 
 def header_extractor(text_Rule):
@@ -65,7 +64,16 @@ def assessment_status_extractor(header):
         return assessment
     return None
 
+def profile_extractor(texte_page):
+    start=texte_page.find("Profile Applicability:")+len("Profile Applicability:")+1
+    end=texte_page.find("Description:",start)-1
+    return texte_page[start:end]
 
+
+def description_extractor(texte_page):
+    start=texte_page.find("Description:")+len("Description:")+1
+    end=texte_page.find("Rationale:",start)-1
+    return texte_page[start:end]
 
 
 
