@@ -24,8 +24,8 @@ def RuleExtractor(liste_num_pages):
                     lignes_propres=lignes[:-2]
                     texte="\n".join(lignes_propres)
                     text_Rule += texte + "\n"
-            description=description_extractor(text_Rule)
-            text_brut+=description+"hahaa\nhahaa\nhahaa\nhahaa\nhahaa\nhahaa\nhahaa\n"
+            remediation=remediation_extractor(text_Rule)
+            text_brut+=remediation+"hahaa\nhahaa\nhahaa\nhahaa\nhahaa\nhahaa\nhahaa\n"
             
     f=open("res.txt","w")
     f.write(text_brut)
@@ -58,24 +58,57 @@ def title_extractor(header):
 
 def assessment_status_extractor(header):
     parenthese_gauche=header.find("(")
-    parenthese_droite=header.find(")")
+    parenthese_droite=header.find(")",parenthese_gauche)
     assessment=header[parenthese_gauche+1:parenthese_droite]
     if assessment:
         return assessment
     return None
 
-def profile_extractor(texte_page):
-    start=texte_page.find("Profile Applicability:")+len("Profile Applicability:")+1
-    end=texte_page.find("Description:",start)-1
-    return texte_page[start:end]
+def profile_extractor(texte_Rule):
+    start=texte_Rule.find("Profile Applicability:")+len("Profile Applicability:")+1
+    end=texte_Rule.find("Description:",start)-1
+    return texte_Rule[start:end]
 
 
-def description_extractor(texte_page):
-    start=texte_page.find("Description:")+len("Description:")+1
-    end=texte_page.find("Rationale:",start)-1
-    return texte_page[start:end]
+def description_extractor(texte_Rule):
+    start=texte_Rule.find("Description:")+len("Description:")+1
+    end=texte_Rule.find("Rationale:",start)-1
+    return texte_Rule[start:end]
 
 
+def rationale_extractor(texte_Rule):
+    start=texte_Rule.find("Rationale:")+len("Rationale")+1
+    if(texte_Rule.find("Impact:",start)!=-1):
+        end=texte_Rule.find("Impact:",start)-1
+    else:
+        end=texte_Rule.find("Audit:",start)-1
+    return texte_Rule[start:end]
+
+
+def impact_extractor(texte_Rule):
+    start=texte_Rule.find("Impact:")
+    if(start==-1):
+        return ""
+    else:
+        start+=len("Impact:")+1
+        end=texte_Rule.find("Audit:",start)-1
+        return texte_Rule[start:end]
+
+
+def audit_extractor(texte_Rule):
+    start=texte_Rule.find("Audit:")+len("Audit:")+1
+    end=texte_Rule.find("Remediation:",start)-1
+    return texte_Rule[start:end]
+
+
+def remediation_extractor(texte_Rule):
+    start=texte_Rule.find("Remediation:")+len("Remediation:")+1
+    end=0
+    if(texte_Rule.find("Default Value:",start)!=-1):
+        end=texte_Rule.find("Default Value:",start)-1
+    else:
+        end=texte_Rule.find("References:",start)-1
+    return texte_Rule[start:end]
 
 
 RuleExtractor(liste_num_pages)
