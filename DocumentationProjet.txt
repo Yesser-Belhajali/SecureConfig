@@ -1,0 +1,205 @@
+--------------------------------------------------------------------------------------------13/06/2026----------------------------------------------------------------------------------------------------
+-j'hésite encore sur l'architecure du système mais j'ai une idée générale.
+-Je vais développer un système qui réalise l'audit de la configuration d'un système ubuntu en se référant au CIS benchmark de la version ubuntu 24.04 LTS pour durcir la sécurité de la machine
+-Nous allons donner comme input le fichier PDF+contexte d'utilisation de la machine et on aura en output une liste de recommendations convenable à l'usage particulier à notre machine
+-Le référentiel sera téléchargé d'auprès le site officiel de CIS,plus précisemment le benchmark de ubuntu 24.04 LTS sous la catégorie systèmes d'exploitation
+-Pour le moment,ce que j'imagine pour le flux serait comme ca:on introduit le PDF + contexte d'usage de la machine,un script python va extraire les règles d'auprès le document et les mettre en un format JSON je crois,puis un script bash va extraire la configuration système et finalement un modèle IA vacomparer la configuration avec les règles et en se référant au contexte pour donner une réponse conforme à mon contexte,normalement nous allons ouvrir un API vers un LLM pour véridier les réponses et finalement on aura un bilan avec score,explication des problèmes et les recommendations
+-je suis en train de lire le PDF pour comprendre la structure des règles et tout.
+-Le CIS benchmark n'est pas suffisant seul pour sécuriser ton système nous avons besoin a faire recours a des EDR,anti-virus,les logs,activités système,activités des users et autres
+-Il existe des recommendations automatiques(que le système peut savoir si elles sont respectées ou non,par exemple si SSH est activé) et manuelles(l'information n'est pas dans le système ou ne pas être vérifiée d'une manière fiable par un script ou on a besoin d'input d'auprès l'utilisateur par exemple si les comptes admins sont biens entretenus)
+-Nous devons toujours employer la dernière version  de Benchmark compatible avec notre système(par exemple ne pas utiliser un benchmar CIS pour windows sur une machine ubuntu et ne pas utiliser la version 22 de ubuntu alors que la version 24 a été publiée)
+-Toute remédiation doit être effectuée en utilisant root(sudo ou autre ne suffisent pas)
+-Nous devons toujours vérifier les scripts avant de les exécuter car une erreur peut casser la machine
+-Toute règle du benchmark CIS posséde cette structure{
+	-Titre:Le nom de la règle
+	-Statut d’évaluation(Automatique OU Manuel):Indique si la règle peut être vérifiée automatiquement ou non(Décider si ton outil peut faire PASS/FAIL automatiquement.)
+	-Profil:Niveau de sécurité de la recommandation.(Level 1 → sécurité de base (standard)/Level 2 → sécurité avancée (serveurs critiques))(Permet de choisir un niveau de durcissement.)
+	-Description:Explication détaillée de la règle.(Comprendre ce que fait la recommandation.)
+	-Justification:Pourquoi cette règle est importante.(Explique la logique de sécurité derrière la règle.)
+	-Impact:Conséquences possibles si on applique la règle.(Aide à décider si la règle est acceptable dans un contexte donné.)
+	-Procédure d'audit:Instructions pour vérifier si la machine est conforme.(C’est ce que ton outil exécute pour détecter PASS/FAIL.)
+	-Procédure de correction:Étapes pour corriger le problème.(C’est ce que ton outil propose comme solution.)
+	-Valeur par défaut:Valeur initiale du système avant durcissement.(Savoir si une configuration a été modifiée ou non.)
+	-références:Sources ou documents liés à la règle.(Documentation complémentaire (utile pour rapport, pas critique pour moteur).)
+	-Correspondance aux contrôles CIS:Lien entre la règle et les grands standards de cybersécurité.(Utilisé pour audit global et conformité.)
+	-Informations supplémentaires:Infos bonus qui n’entrent pas dans les autres catégories.(Clarification ou cas particuliers.)
+}
+--------------------------------------------------------------------------------------------14/06/2026----------------------------------------------------------------------------------------------------
+-Je crois que le format du JSON sera comme ça:
+{
+  -"id": "string",
+  -"title": "string",
+  -"assessment_status": "manual | automated",
+  -"profiles": [
+    {
+      "type": "server | workstation",
+      "level": 1 | 2
+    }
+  ],
+  -"description": "string",
+  -"rationale": "string",
+  -"impact": "string | null",
+  -"audit": "string",
+  -"remediation_procedure": "string",
+  -"default_value": "string | null",
+  -"references": [
+    "string"
+  ],
+  -"additional_information": "string | null"
+  -"cis_controls": [
+    "string"
+  ],
+  -"severity": "low | medium | high",
+}
+-On va commencer par écrire un code qui extrait les règles d'auprès le fichier PDF et enfin les retourner sous format JSON
+-Je vais développer extractor.py c'est le code python qui va lire le PDF,extraire du texte brute et stocker chaque règle dans un objet python
+-Je vais ensuite développer main.py qui est le point d'accès qui va prendre chaque objet python et le stocker sous format JSON dans un fichier JSON appelé cis_rules.json
+-Pour l'extraction
+  ],
+  -"additional_information": "string | null"
+  -"cis_controls": [
+    "string"
+  ],
+  -"severity": "low | medium | high",
+}
+-On va commencer par écrire nous devons commencer par comprendre la structure des règles et comment les identifier puis extraire le texte brut du PDF,ensuite on l'analyse et on le nettoie puis on commence à le ségmenter et le stocker dans un objet python et enfin le mapper sur JSON
+-J'ai commencé par travailler sur le fichier extractor.py qui a quatre fonctions principales extraire une page->la nettoyer->l'ajouter au texte brut->écrire le texte brut dans un fichier res.txt pour voir le résultat
+-Sur le fichier extractor.py on a appelé la librairie pdfplumber de python pour manipuler des fichiers pdf,puis on a écrit deux fonctions:nettoyage_page(texte_page),qui prend la page extraite et la nettoie du footer qui indique le numéro de la page et le titre "Internal Only - General" qui se trouvent en bas de toutes les pages,l'autre est la procédure extract_pdf_text(path) qui prend le path vers le fichier pdf,lit le fichier page par page,extrait les pages correspondantes aux règles et appelle nettoyage_page(texte_page) sur chaque page,puis stocke toutes les pages dans une chaine et écrit le résultat dans le fichier res.txt
+-Maintenant il me reste à extraire les règles une par une
+-dans le fichier il existe des règles et des documentations,les règles commencent toujours par id+"Ensure" et les documentations commencent toujours par id+"Configure"
+-Je peux sois utiliser un Parser classique avec ma méthode d'extraire le code en séquence page par page ou bien utilise table of contents car elle signale sur quelle page commence chaque règle et sur quelle page elle se termine,ma la premiere methode leve le probleme de quand se termine une regle et comment identifier sa fin,alors que la deuxieme methode rend cela facile mais l extraction du numero de la page de debut et de fin serait compliqué
+-J'ai opté à utiliser la méthode du Table Of Contents TOC,ou j'ai extrais le TOC,maintenant je vais essayer d'extraire les pages comme ca, regle 1 commence par Liste[0] et se termine sur la page Liste[1]-1,regle 2 commence sur la page Liste[1] et se termine sur Liste[2]-1
+
+--------------------------------------------------------------------------------------------16/06/2026----------------------------------------------------------------------------------------------------
+
+-j'avais une petite erreur de logique sur ma methode ou il existe une documentation qui a ensure dans son titre donc elle a été ajoutee et en plus de ca,ma methode etait de stocker les numeros de pages dans une liste mais le probleme est par exemple si regle une commence sur la page 50 et se termine sur la page 53 et la regle suivante commence sur la page 57 et se termine sur la page 60,et sur les pages 54,55 et 56 sont reservees aux documentations,la logique de ma methode etait que je prend la premiere page de ma regle jusqu a la premiere page -1 de la regle suivante comme ci toutes les regles se suivent alors que ce n est pas le cas,si on applique ca sur notre exemple je vais prendre les pages 50,51,52,53,54,55 et 56 donc j ai pris aussi les documentations,d ou j ai ajouté ces documentation dans la liste et adapte la logique pour les zapper si je tombe dessus
+-J'ai ajouté aussi les numéros de pages des configurations pour savoir les limites et les zapper en utilisant la fonction bisect.insort de la bibliotheque bisect comme ca: bisect.insort(liste,element) elle ajoute l element en gardant le tri croissant
+-Je me suis aussi trouvé en face d'un probleme,ou je n'ai pas pu extraire chaque champ mais je suis entrain de le resoudre etape par etape.
+-j'ai terminé l'extraction de l'id,titre,assessment et profile applicability maintenant je passe à la description
+-j'ai terminé l'extraction de tous les champs,maintenant il ne me reste que de préparer l'objet de stockage et de finir le fichier JSON qui va stocker toutes les informations
+-j'ai préparé l'objet,c'est un dictionnaire qui stocke toutes les informations concernant une règle,puis j'ai stocké toutes les règles dans un fichier JSON
+
+--------------------------------------------------------------------------------------------17/06/2026----------------------------------------------------------------------------------------------------
+-J'ai terminé la partie concernant l'extraction de chaque règle et leur stockage dans sous format JSON
+-Maintenant il me reste l'automatisation de l'audit,mon probleme est que je ne sais pas comment l'achever,je peux extraire les scripts bash mais le probleme est que je ne sais pas comment signaler si une règle est respectee ou non,car le respect d'une regle se manifeste sur plusieurs formes selon la règle et comment la vérifier,si on classe le résultat de l'audit d'une règle par pass ou fail,il existe des regles qui sont respectées si le script ne réalise aucun output et d autres si un parametre affcihé a une certaine valeur ou d autres
+-J'ai aussi d'autres questions sur l'intégration de l'IA est ce que je vais l'utiliser comme un moteur d'audit (qui me semble incorrecte) ou pour enrichir l'output
+
+--------------------------------------------------------------------------------------------25/06/2026----------------------------------------------------------------------------------------------------
+-Concernant l'extraction,il s'est avéré que ma méthode n'étatit pas totalement correcte,le probleme posé par mon encadrant Mr Chawki après que je l'ai montré ma solution est que c'est un peu du hard coding,si le pdf change un peu ou on déplace un paragraphe le pipeline sera détruit,il a surtout mis l'accent sur l'importance et la nécessité d'un peu d'intelligence(intelligence artificielle) dans l'extraction,quelque chose qui comprend le contexte,qui comprend le sens des paragraphes et tout
+-On a besoin de l'intelligence artificielle dans l'extraction,je me suis posé la question que l'intelligence artificielle n'est pas exacte,un jour je peux la donner les données a et b et elle me donne c comme output alors qu'en un autre jour si je la donne a et b elle me donne en output d ce qui est un probleme majeur en cybersécurité ou on a besoin d'uniformité et de la fiabilité,mais l'encadrant m'a répondu en disant queles attaquant utilisent déjà l'intelligence artificielle donc la décision d'utiliser l'intelligence artificielle dans la cyber sécurité a été déjà prise
+-l'encadrant a proposé de procéder par étape,au début je dois créer un agent IA d'extraction qui prend le PDF et extracte les règles
+-Le probleme est que je ne sais pas quoi faire ou comment proceder ou par quoi commencer.
+-J'ai appelé quelque amis et ils m'ont enseigné quelque nouvelles notions,agentic AI,LLM et tout,agentic AI c'est le fait d'installer un modele et lui diviser en des petits agents AI ou chacun a une backstory et une tache spécifique,maintenant mon probleme est soit j'installe des petits modeles ou chacun est spécialste dans une tache(par exemple un modele pour l extraction,un modele pour l'audit et un autre pour la generation de script),ou j'installe un LLM(large language models) et je crée depuis lui des agents ou chacun fait une tâche spécifique,le probleme avec l'approche des modeles dédiés c'est la coordination entre eux et ne pas savoir si un est fiable ou non et performant ou non et un peu de RAM,donc je vais opter a installer un LLM qui va gerer tout a travers des agents
+
+--------------------------------------------------------------------------------------------30/06/2026----------------------------------------------------------------------------------------------------
+
+-j'ai passé presque 2 hrs avec le spécialiste que mon encadrant de STEG a mentionné,je l'ai expliqué le projet,ce que je dois faire,les livrables et les difficultés que je me trouve face à,il m'a expliqué l'IA et tout puis il m'a proposé une approche,il a expliqué que mon probleme était l'extraction des recommendations et ensuite filtrer celle que je dois remédier en se basant sur le contexte de la machine,il m'a proposé de voir le comme un probleme de classification,ou on recoit le contexte d'aupres l'utilisateur puis on déduit la classe de la machine.
+-Dans une deuxieme étape je devrais extraire les recommendations en se basant sur le contexte avec Random forest(un modele IA),il m'a dit que je peux consulter mon encadrant et analyser avec lui la proposition,il a aussi mentionné quelque chose de très important,USG(Ubuntu Security Guide),qui est un outil qui automatise l'audit et la remédiation des systemes ubuntu en se basant sur le moteur OpenSCAP,USG fournit une interface a OpenSCAP user-friendly pour appliquer les recommendations des benchmarks CIS à partir de Ubuntu 20.4 LTS.
+-Une autre idée m'a traversée l'esprit,pourquoi donner à l'IA la main d'effectuer des tâches critiques comme l'extraction des recommendations que je vais baser tout le travail sur ou la tâche de génération de script de remédiation pourquoi ne pas me baser sur OpenSCAP un outil fonctionnel open source,reconnu par des milliers pour l'audit et la remédiation,et ANSIBLE un outil de coordination entre machines pour être plus scalable et d'effectuer les memes instructions sur plusieurs machines et puis utiliser un LLM ou autrepour le contexte ou autre
+
+--------------------------------------------------------------------------------------------02/07/2026----------------------------------------------------------------------------------------------------
+-Je seuis en train d'analyser le fonctionnement de OpenSCAP et de ComplianceAsCode
+-J'ai fais mes recherches et j'ai trouvé plusieurs choses ou je dois plus me profonder,comme ComplianceAsCode,scap-workbench et autres
+-XML(eXtensible Markup Language) est un format de texte qui sert a stocker et echanger des donnees entre applications d'une manière structurée(c'est comme JSON),on utilise des marqueurs ou tags comme HTML dans la description des données et elles sont structurées sous la forme d'une arborescence
+<listeAmis>
+	<ami>
+		<nom>Ahmed</nom>
+	</ami>
+	<ami>
+		<nom>Amine</nom>
+	</ami>
+	<meilleurAmi>
+		<nom>Aziz</nom>
+	</meilleurAmi>
+</listeAmis>
+-Il existe des formatters de XML des applications qui transforment un fichier contenant du XML en un fichier XML
+-Il existe aussi les validators qui verifient si un contenu XML suit la structure de la schema ou non
+-Une XML schema est le plan que le contenu xml doit suivre,c'est comme l'interface du format xml qu'on doit respecter(les champs et tout.)
+-YAML(anciennement Yet Another Markup Language mais maintenant YAML Ain't Markup Language) est un format de texte et de serialisation de donnees qui permet de stocker et d'echanger les donnees de manière structurée et facilement lisible par les humains
+-On appelle le texte du fichier .yaml le flux yaml
+-on appelle la structure logique d'un fichier YAML la représentation YAML
+-Un workflow YAML est un fichier qui décrit un processus automatisé étape par étape en YAML(les déclencheurs et les jobs),
+-LOAD:transformer un format texte (YAML) en structure que le programme peut utiliser
+-DUMP:transformer une structure mémoire en texte YAML pour stockage ou échange
+-XML,JSON,YAML sont des formats de texte utilisé pour le stockage et le tranport des donnees et car ils sont lisibles par les humains,toutes les machines ne comprennent ni json ni xml ni yaml,les machines comprennent les representation en memoire comme dict et list....,alors pourquoi on utilise json et les autres ,car c est lisible par les humains et car c'est un langage universel ou toutes les machines le comprennent et peuvent generer les donnees en memoire(toutes les machines comprennent UTF-8),toutes les machines ne se comprennent pas,par exemple une utilise jave et l autre python.
+
+--------------------------------------------------------------------------------------------03/07/2026----------------------------------------------------------------------------------------------------
+
+-OpenControl(2015):est un standard ouvert et un outil de description de conformité d'un logiciel avec un ou plusieurs référentiels de sécurité,il prend la forme de plusieurs fichiers lisibles par les machines et les humains(YAML par exemple),il permet d'automatiser la dcoumentation de la conformité d'un produit avec les référentiels.
+-Au début les développeurs devraient écrire des documents word d'une centaine de pages décrivant chaque règle ou recommendation et comment le logiciel implémente cette recommendation,mais cela prenait beaucoup de temps et on avait à repeter le meme travail pour plusieurs referentiels,c'est la ou intervient OpenControl,le principe est de decrire les controles de securite(l'implementation des recommendations ou des regles) dans un fichier YAML ce qui sert a la reutilisabilite et l'automatisation
+-OpenControl n'automatise pas la rédaction,c'est le travail des humains d'ecrire le fichier YAML,l'automatisation reference le fait de generer le fichier PDF final de conformité
+
+-ComplianceAsCode(2018):Anciennement SSG(SCAP Security Guide)(2011):est un standard qui permet de décrire les règles ou recommendations de sécurité sous format de code afin d'automatiser l'audit et la remédiation,au début les ingénieurs devraient installer le référentiel,lire chaque règle,la comprendre puis faire l'audit et enfin remédier,mais c'est tres lent,alors l'idee est pourquoi ne pas gerer les regles comme du code et generer automatiquement du contenu SCAP pour automatiser tout le processus,c'est un generateur de contenu de conformité que des outils qui automatisent l'audit et la remediation peuvent utiliser(des outils comme OpenSCAP)
+-Le processus commence par la traduction des règles par un ingénieur en un fichier YAML qu'un compilateur va prendre en input pour produire du SCAP datastream que les outils peuvent utiliser pour automatiser le reste du processus
+
+-La différence entre OpenControl et ComplianceAsCode est le fait que ComplianceAsCode traduit les recommendations en du contenu que les machines comprennent,par exemple il prend une recommendation CIS et la transforme en fichier de test et fichier de remédiation que la machine exécute automatiquement alors que OpenControl gere le cote de description de conformité
+
+-profile de sécurité:un profile de sécurité est un ensemble de règles de sécurité regroupees pour un objectif précis de conformité,c'est une liste selectionnee de regles appliquees ensemble
+-On cree des profiles de securite parce qu on ne veut pas appliquer toutes les regles partout,par exemple un environnement militaire va employer un profile plus strict qu'un serveur WEB,on peut prendre l'exemple de CIS ou il existe de profiles avec profile 2 est plus severe que le premier et on a aussi le STIG tres strict concu pour un environnement de militaire
+
+--------------------------------------------------------------------------------------------04/07/2026----------------------------------------------------------------------------------------------------
+
+-SCAP:Security Content Automation Protocol est un ensemble de standards ouverts qui permet d'automatiser l'évaluation de la conformité et de la sécurité des systèmes informatiques
+-C'est comme une recette qui orchestre aux outils d'audits exactement comment vérifier l'existence des vulnérabilités
+-SCAP est un protocole publié par NIST,c'est un ensemble de standards ayant le but de faciliter l'automatisation de la gestion des vulnérabilités,il explique comment les différents standards(composants SCAP) sont combinés
+-Avant SCAP chaque organisation publie ses recommendation de sécurité et l'ingénieur devrait installer ces PDFs et analyser,comprendre puis appliquer chaque regle ce qui devient rapidement long et couteux,l'idee de SCAP et pourquoi ne pas transformer ces regles en un format exploitable par les machines pour automatiser tout ca.
+-SCAP est composé de plusieurs Standards(XCCDF/OVAL/CPE/CVE/CVSS/CCE)
+-SCAP est un protocole (une spécification) qui définit comment modéliser des recommandations/règles de sécurité dans un format lisible par des machines, en combinant plusieurs sous-standards (XCCDF, OVAL, CPE, CVE, OCIL...)
+-SCAP est un standard qui dit que chaque règle de sécurité doit être représentée selon des sous-standards (XCCDF, OVAL, CPE...), et que cet ensemble est généralement regroupé dans un fichier XML (le DataStream), bien que ça puisse historiquement être en fichiers séparés
+-Voici le fonctionnement de SCAP,CPE identifie le software et le systeme,CVE liste les vulnérabilités de ce plateforme,OVAL montre à l'outil comment vérifier l'existence des vulnérabilités,XCCDF nous donne un checklist de compliance du systeme,CVSS fait le score de chaque vulnérabilités(0-10) pour que les équipes puissent classer les vulnérabilités par degré de menace
+-Il existe deux mondes d'implémentation de SCAP,le premier c'est la conformité(CIS,durcissement),c'est de se referer a des recommendations CIS par exemple pour securiser notre systeme et le deuxieme c'est la gestion des vulnerabilités,on repond a la question est ce que notre systeme contient des failles ou non.
+
+-XCCDF(Extensible Configuration Checklist Description Format):La checklist humaine : décrit quoi vérifier — les règles de sécurité, leur titre, description, sévérité, et les profils (ex: "CIS Level 1"). Ne contient pas la logique technique de test, elle délègue ça à OVAL.
+
+-OVAL(Open Vulnerability and Assessment Language):le moteur de test technique : décrit comment vérifier concrètement un état système (contenu d'un fichier, valeur sysctl, package installé...). Utilisé à la fois par XCCDF (pour la compliance) et seul (pour les vulnérabilités)
+
+-CPE (Common Platform Enumeration):La nomenclature de plateforme : identifiant standardisé pour désigner un OS/logiciel précis (ex: cpe:/o:redhat:enterprise_linux:9). Sert à savoir à quel système une règle ou une vulnérabilité s'applique.
+
+-CVE (Common Vulnerabilities and Exposures):L'identifiant unique de vulnérabilité : un numéro standard (ex: CVE-2024-3094) qui référence une faille logicielle connue et publique. C'est la donnée de base du volet vulnerability management.
+
+-CVSS (Common Vulnerability Scoring System):Le score de gravité d'une CVE : une note de 0 à 10 calculée à partir de métriques (facilité d'exploitation, impact...). Répond à la question "à quel point cette CVE est-elle critique ?"
+
+-CCE (Common Configuration Enumeration):L'identifiant unique d'un item de configuration connu (ex: CCE-27072-8 = "désactiver root login SSH"). Sert à relier une même recommandation entre plusieurs référentiels différents (CIS, DISA STIG...) qui parlent de la même chose.
+
+-Le lien entre SCAP et ComplianceAsCode est que ce dernier est l'outil qui peut produire su SCAP grace a la collaboration des milliers d'utilisateurs alors que SCAP est simplement le format que prend ces recommendations apres transformation et qui exploitable
+
+--------------------------------------------------------------------------------------------05/07/2026----------------------------------------------------------------------------------------------------
+
+-Je suis en train d'analyser le projet GitHUB ComplianceAsCode,c'est un projet OpenSource maintenu par la collaboration de plusieurs chercheurs et experts dans le domaine de la cybersécurité,leur objectif et d'automatiser la gestion des vulnérabilité et la vérification de conformité dans le domaine de la cyber en transformant les recommendations et les regles de sécurité en format lisible par les machines pour qu'on puisse automatiser l'audit et la remédiation
+-Le flux est le suivant
+
+
+-Maintenant je vais étudier OpenSCAP,je dois passer immédiatement à la pratique.
+-OpenSCAP est une implémentation open source de SCAP
+-OpenSCAP est le moteur qui lit les datastreams SCAP,comprend le contenu et fait l'audit pour une éventuelle remédiation lorsque les règles le permettent
+-OpenSCAP ne contient pas le contenu des benchmarks et tout,c'est simplement le moteur qui lit les fichiers et exécute la logique,on lui fournit le contenu d'auprès ComplianceAsCode,DISA STIG,CIS etc....
+-OpenSCAP contient des moteurs capables d'interpréter plusieurs standrads SCAP(XCCDF/OVAL/CPE/CCE/DataStream/ARF)
+-Donc le flux normal est CIS publie un nouveau benchmark,les contributeurs de ComplianceAsCode le transforme en SCAP ou DataStream SCAP en format XML puis OpenSCAP lit ce fichier,analyse le systeme,genere des rapports et offre la possibilité de remédiation si le SCAP le permette
+-Le fonctionnement de OpenSCAP est le suivant:
+-Il ouvre un DataStream par exemple ssg-ubuntu2404-ds.xml,il lit le XCCDF(qui contient les regles,le profil,le score et la description),puis chaque règle référence un test,OpenSCAP exécute les tests OVAL,génére le rapport et enfin si possible il applique les correctifs associés aux règles qi disposent d'une instruction de correction
+-OpenSCAP est simplement le moteur qui lit le contenu SCAP,le comprend et enfin l'exécute mais lui il ne possede pas le contenu,alors nous devons le lui fournir,c'est pour cette raison qui existe ces fournisseurs de contenu SCAP,comme CIS,DISA STIG ou SSG(SCAP Security Guide)
+
+
+-SSG(SCAP Security Guide):est une policy de sécurité écrite sous format SCAP,elle couvre plusieurs domaines dans le contexte de la sécurité,elle offre des recommendations sous formats SCAP pour les systemes d exploitations comme linux et windows et pour les applications comme mozilla firefox
+
+
+
+
+
+-Lire le site de OpenSCAP
+-Lire Repo OpenSCAP et Repo ComplianceAsCode sur GitHUB
+
+
+
+-C'est quoi OpenSCAP,ARF,oscap,scap-workbench
+-Vulnerability management VS Security Compliance
+-En premier temps vérifier faire COmpliance Check et apres si j ai assez de temps de ferai vulnerability management
+-benchmark(PDF humain)->
+-Autre probleme,automatiser la transformation d'une recommendation ou regle humaine en format SCAP
+-scap-workbench est dans la phase de end of life
+-c'est quoi DevSecOps,CI/CD,ansible,playbook,dokker,les conteneurs
+-codebase c'est quoi?
+-c'est quoi bande-passante,DBT,scrutora,baseline,OSCAL
+-generer une liste de CVE que ma machine peut etre vulnerable à
+-web.nvd.nist.gov/view/ncp/repository lien vers une DB de pluseiurs security policies comme CIS et autre
+-redhat.com/security/data/oval/ redhat

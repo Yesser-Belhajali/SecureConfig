@@ -1,11 +1,12 @@
 import pdfplumber
 import json
 
+
 from PagesListExtractor import extract_pdf_text
 
 
-
 liste_num_pages = extract_pdf_text("data/CIS_Ubuntu_Linux_24.04_LTS_Benchmark_v2.0.0.pdf")
+
 
 def RuleExtractor(liste_num_pages):
     rules=[]
@@ -76,6 +77,7 @@ def assessment_status_extractor(header):
     if assessment:
         return assessment
     return None
+
 
 def profile_extractor(texte_Rule):
     start=texte_Rule.find("Profile Applicability:")+len("Profile Applicability:")+1
