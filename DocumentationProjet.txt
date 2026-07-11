@@ -247,6 +247,13 @@
 -Au début j'ai fais mes recherches,puis j'ai lancé l'ordinateur et booté le PC depuis la clé en croyant que j'ai l'image ISO de ubuntu 24 mais j'avais Ubuntu26,alors je l'ai installé par faute.
 -Quand il s'est avere la faute que j'ai commise j'ai formaté la clé(ce qui est innecessaire car Refus fais le formatage lui meme),puis j'ai installé l'image iso de ubuntu 24 sur la clé et je l'ai formaté avec Rufus pour qu'elle devient une clé bootable,puis j'ai lancé le PC depuis la clé et commencé l'installation de Ubuntu24,j'ai choisi l'option d'installation manuelle et vidé l'espace disque de ubuntu26 et le remplacé par ubuntu24,le format de la partition en Ext4 et montée sur "/".
 -Enfin j'in tout installé sur ubuntu24 et je peux finalement commencer le développement
+-apt sur Ubuntu24 offre OpenSCAP avec la version 1.3.14 alors j'ai décidé d'installer le code source depuis GitHUB,j'ai installé la derniere version 1.4.5,mais le probleme est que je ne peux pas encore l'utiliser depuis le CLI donc j'avais a compiler le projet et le rendre executable,maintenant je l'ai compilé et je peux utiliser le projet comme une commande executable depuis n'importe ou sur le systeme
+-J'ai installé SSG depuis GitHUB aussi,elle néexessite des dépendances et le build du contenu nécessaire mais je l'ai résolu
+-Le processus est le suivant,installer SSG depuis GitHUB puis build ds.xml de mon systeme,lancer la commande oscap info pour voir l'id et enfin lancer le test
+
+--------------------------------------------------------------------------------------------11/07/2026-------------------------------------------------------------------------------
+
+-Je ne sais pas quoi faire,c'est trop,le code source et gigantesque,je ne sais pas ou commencer et par quoi,je termine le stage ce lundi et je ne sais pas encore quoi faire,je n'ai rien réalisé,pas de rapport pas de code rien
 
 
 
