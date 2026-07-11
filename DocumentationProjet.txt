@@ -179,10 +179,78 @@
 -Il ouvre un DataStream par exemple ssg-ubuntu2404-ds.xml,il lit le XCCDF(qui contient les regles,le profil,le score et la description),puis chaque règle référence un test,OpenSCAP exécute les tests OVAL,génére le rapport et enfin si possible il applique les correctifs associés aux règles qi disposent d'une instruction de correction
 -OpenSCAP est simplement le moteur qui lit le contenu SCAP,le comprend et enfin l'exécute mais lui il ne possede pas le contenu,alors nous devons le lui fournir,c'est pour cette raison qui existe ces fournisseurs de contenu SCAP,comme CIS,DISA STIG ou SSG(SCAP Security Guide)
 
-
 -SSG(SCAP Security Guide):est une policy de sécurité écrite sous format SCAP,elle couvre plusieurs domaines dans le contexte de la sécurité,elle offre des recommendations sous formats SCAP pour les systemes d exploitations comme linux et windows et pour les applications comme mozilla firefox
 
+-J'ai voulu approfondire ma compréhension de OpenSCAP et ses commandes alors je l'ai installé sur mon ubuntu 26 pour l'essayer,le problème est que chaque distribution ubuntu a ses versions ou chaque version a ses propres tests et je n'ai pas trouvé le SCAP de ubuntu 26 mais j'ai trouvé SCAP de ubuntu 24,alors j'ai décidé d'installer un VMware pour installer une VM ubuntu 24 sur ubuntu 26 et de l'essayer là bas mais puisque j'ai un dual boot windows/ubuntu sur mon pc je n'avais pas assez d'espace,j'ai 500GB de stockage sur mon disque dur et je n'ai donné a ubuntu que 50 GB et il utilisait deja 27gb donc j'ai décidé de redimensionner les partitions(réduire l'espace réservé à windows et le donner a ubuntu),j'ai lancé windows et il ne m'a pas laissé de réduire son espace,et j'avais peur de l'essayer depuis ubuntu(réduire l'espace de windows depuis ubuntu) à cause du risque de corruption des données,alors j'ai fais un backup de tous mes donnees et je reessayé,il s est avere que windows garde des fichiers non deplacables donc ils rendent la reduction de l espace windows impossible.
+-Voici la partition de mon disque(EFI(105MB) | Espace réservé windows (17MB) | C: (456 GB) | espace libre (1.2 MB) | Windows Recovery (1GB) | Ubuntu (54GB) | espace libre (900MB))
+-pour élargir une partition il faut réduire une et donner a une autre,mais le probleme est que pour fusionner deux partitions il faut que ces dernieres soient adjacentes donc meme si je serai capable de réduire l espace attribué a windows je dois ensuite déplacer cet espace libre car apres reduction le partitionnement deviendra comme ca: (EFI | espace réservé windows | C: | espace libre que je veux attribuer a ubuntu | free space | recovery windows | ubuntu | free space ),donc je dois deplacer recovery juste apres C: et fusionner le reste.
+-Mais le probleme est que windows ne m'a pas permis de lui reduire de l espace a cause de ses fichiers non deplacables.
+-Une idee suggeree par ChatGPT est d'utiliser une clé USB ubuntu bootable,ouvrir ubuntu depuis la clé et de refaire le partitionnement en utilisant GParted de Ubuntu,et je ne pouvais pas faire tout ca depuis ubuntu 26 de dual boot car si j'ouvre ubuntu ca veut dire j'ai ouvert le disque donc il risque que windows s'ouvre aussi pour accelerer l ouverture la prochaine fois donc je ne peux faire ca que depuis la clé bootbale,alors j'ai pris une clé,je l'ai formatté et installé l'image iso de ubuntu 26 dessus puis j'ai installé Rufus pour formater la clé avec l'image et la rendre une clé bootable.
+-Finalement j'ai ouvert ubuntu depuis cette clé et j'ai essayé de redimensionner mais ca a échoué
 
+--------------------------------------------------------------------------------------------06/07/2026----------------------------------------------------------------------------------------------------
+
+-J'étais malade je ne pouvais rien faire
+
+--------------------------------------------------------------------------------------------07/07/2026----------------------------------------------------------------------------------------------------
+
+-J'ai commencé mon travail l'apres-midi et j'ai eu l'idée d'installer la VM sur Windows pour tester OpenSCAP sur les différentes Distros Linux,j'ai trouvé des tutos sur le site de ubuntu et j'ai commencé l'installation.
+-En résumé nous devons installer un hypervisor comme VirtualBox,installer une image .iso d'un Systeme d exploitation et de configurer le systeme et lancer la machine.
+-Quand j'ai installé Ubuntu24 et SSG,je n'ai pas trouvé le test de ubuntu 24 je n'ai trouvé que jusqu'a ubuntu 22 ce qui me semblait bizarre car sur ubuntu 26 j ai trouvé les tests jusqu a ubuntu 24 et sur ubuntu 24 je n ai trouvé que des tests jusqu a ubuntu 22,j'ai cherché en ligne et j'ai recu des suggestions  de mettre a jour la commande apt install,car apt install consulte les repositories vérifiées par ubuntu pour installer donc si le produit que je veux installer est present la bas alors je peux installer la derniere version verifiee par ubuntu mais la mise a jour n'a pas résolu le probleme
+-J'ai décidé alors d'installer RHEL(Red Hat Enterprise Linux),ce qui a pris beaucoup de temps car cela nécessite un compte red hat,puis je l'ai installé et il s est avere que je n ai installé que la version CLI,alors je l ai desinstallé et essayé d'installer l'autre version avec GUI mais le telechargement echoue des qu il se termine,alors j'ai décidé de télécharger debian 13.5 car je l ai trouvé sur SSG mais son démarrage sur la VM a pris beaucoup de temps donc j'ai cru qu'il a échoué et je l'ai désinstallé
+-Finalement j'ai consulté le repo GitHub de ComplianceAsCode pour un peu d'aide
+
+--------------------------------------------------------------------------------------------08/07/2026----------------------------------------------------------------------------------------------------
+
+-J'ai décidé de faire une derniere tentative avec ubuntu24,alors je l'ai installé sur la VM et le lancé,mais sur SSG pas de ubuntu 24 encore une fois,j'ai meme mis a jour mes packages apt install et les autres mais rien,simultanement j'ai recu une reponse sur ma discussion sur ComplianceAsCode,et le contributeur a suggere que j installe le code et je build moi meme le test de Ubuntu24 ou Ubuntu26,alors et apres plusieurs tentatives et aide par l'IA j'ai reussi a faire le build convenable et les tests ont réussi sur Ubuntu24 donc pas besoin de tester de plus maintenant il me reste a plus enrichier ma comprehension de SCAP et OpenSCAP et enfin commencer le développement de ma solution.
+
+--------------------------------------------------------------------------------------------09/07/2026----------------------------------------------------------------------------------------------------
+
+-J'ai fais le build de Ubuntu26-ds.xml sur mon ubuntu26 mais je n'ai pas pu faire le test car ils n'ont pas encore créé de profiles pour ubuntu26
+
+-Maintenant je suis en train de lire le site OpenSCAP
+-OpenSCAP met en notre disposition plusieurs outils pour nous assister a mesurer et renforcer nos security baselines,Nous avons OpenSCAP/OpenSCAP Daemon/SCAP Workbench/SCAPTimony/OSCAP Anaconda Add-on
+-OpenSCAP:l'outil qui permet le scan de vulnérabilté et la configuration du systeme a partir du CLI
+-OpenSCAP Daemon:Outil construit sur OpenSCAP,tourne en arriere plan et qui fait l'audit du systeme selon un timer comme un job
+-SCAP Workbench:L'équivalent graphique de OpenSCAP,il est dans la phase EOL(n'est plus utilisé)
+-SCAPTimony:Une BD qui stocke les résultats SCAP et offre la possibilté de manipuler ces donnees et performer des statistiques
+-OSCAP Anaconda Add-on:c'est une extension a Anaconda qu'on ajoute au Anaconda Installer qui permet aux administrateurs d'ajouter des policies de sécurités dans le processus d'installation avant meme que le systeme soit operant
+
+-Il existe d'autres outils qui fonctionnent en synergie avec OpenSCAP pour offrir une gestion centralisée de l'ensemble du parc informatique. Ils permettent ainsi d'auditer et de remédier aux vulnérabilités à l'échelle d'un groupe de machines, et non plus de manière isolée.
+
+-OpenSCAP nous offre la possibilité de choisir la politique de sécurité qui est la plus convenable a notre cas d'utilisation,ce sont des regles ou recommendations qui sont machines readable que notre infrastructure doit etre conforme à.
+-Nous devons d'abord choisir une politique qui convient avec nos criteres
+-web.nvd.nist.gov/view/ncp/repository : lien vers une DB de pluseiurs security policies comme CIS et autre
+-redhat.com/security/data/oval/ : Le dépôt OVAL de Red Hat contient un ensemble de définitions OVAL correspondant aux avis de sécurité (Red Hat Errata Security Advisories). Ces définitions permettent aux outils d’audit comme OpenSCAP d’identifier automatiquement les vulnérabilités présentes sur un système Red Hat en vérifiant les versions des paquets installés et en les comparant avec les versions corrigées fournies par Red Hat.
+-ftp.suse.com/pub/projects/security/oval/ : La base d’informations OVAL de SUSE Linux Enterprise est un référentiel contenant des définitions de sécurité liées aux incidents corrigés. Ces informations sont classées par produit, nom de paquet RPM et version afin de permettre aux outils de contrôle de conformité, comme OpenSCAP, de vérifier automatiquement si un système SUSE contient des vulnérabilités connues ou nécessite des mises à jour de sécurité.
+
+-SCAP Security Guide(SSG):est un ensemble de politiques de sécurités concu pour etre utilisés sur plusieurs plateformes ou chaque plateforme possede des profiles de securités qu on peut employer et qui conviennent a nos criteres
+-SSG est un projet Open Source qui cree et fournit des policies de sécurité sous format SCAP pour plusieurs plateformes,OpenSCAP utilise les profils definis dans SSG pour tester la conformité d'un systeme avec le profil choisi
+
+-On peut faire des modifications des politiques de securites,par exemple on peut rendre les recommendations plus strictes ou on peut activer ou désactiver toutes les recommendations si c'est necessaire : c'est le tailoring
+-Tailoring c'est modifier une politique de sécurité pour qu'elle soit plus convenable a notre cas d'utilisation,activer ou désactiver une recommendation,changer les valeurs d'une regle etc..
+-On peut même sauvegarder separement notre politique modifiee pour garder la version initiale et celle modifiée
+-Je dois plus approfondir ma comprehension du tailoring en installant scap workbench
+-https://www.open-scap.org/resources/documentation/customizing-scap-security-guide-for-your-use-case/ : lien pour plus comprendre le tailoring
+-https://www.open-scap.org/resources/documentation/evaluate-remote-machine-for-usgcb-compliance-with-scap-workbench/
+
+-Je dois plus lire XCCDF et OVAL et comprendre leur strcuture pour effectuer le tailoring
+
+-Sur le site j'ai terminé les pages: Security Policies/Tools/Standards
+
+--------------------------------------------------------------------------------------------10/07/2026----------------------------------------------------------------------------------------------------
+
+-Mon idée est de créer une application web qui fonctionne comme une interface qui va faciliter le travail avec OpenSCAP
+-J'ai beaucoup d'idees mais ca serait non realiste d'esperer de tout faire(Scan+remediation+base de donnees pour trace+ IA + ANSIBLE),c'est vraiment tres compliqué et cela necessite l'installation du code source de OpenSCAP et le comprendre ce qui va prendre beaucoup de temps,mais on peut proceder pas a pas,la premiere étape c'est de réaliser une interface web qui fait uniquement le scan puis on peut évoluer dans le futur,et cela n'exige pas l'installation du code source car l'exécutable suffit
+
+-J'ai commencé par emplacer Ubuntu26 par Ubuntu24,j'ai commi une petite erreur en installant encore une fois ubuntu26 mais j'ai remédié ma faute en installant Ubuntu24
+-Au début j'ai fais mes recherches,puis j'ai lancé l'ordinateur et booté le PC depuis la clé en croyant que j'ai l'image ISO de ubuntu 24 mais j'avais Ubuntu26,alors je l'ai installé par faute.
+-Quand il s'est avere la faute que j'ai commise j'ai formaté la clé(ce qui est innecessaire car Refus fais le formatage lui meme),puis j'ai installé l'image iso de ubuntu 24 sur la clé et je l'ai formaté avec Rufus pour qu'elle devient une clé bootable,puis j'ai lancé le PC depuis la clé et commencé l'installation de Ubuntu24,j'ai choisi l'option d'installation manuelle et vidé l'espace disque de ubuntu26 et le remplacé par ubuntu24,le format de la partition en Ext4 et montée sur "/".
+-Enfin j'in tout installé sur ubuntu24 et je peux finalement commencer le développement
+
+
+
+-Idees:Interface Graphique pour OpenSCAP+BD+Stats+AI+Ansible
 
 
 
@@ -191,7 +259,7 @@
 
 
 
--C'est quoi OpenSCAP,ARF,oscap,scap-workbench
+-C'est quoi OpenSCAP,ARF,oscap,scap-workbench,Atomic Scan
 -Vulnerability management VS Security Compliance
 -En premier temps vérifier faire COmpliance Check et apres si j ai assez de temps de ferai vulnerability management
 -benchmark(PDF humain)->
@@ -201,5 +269,5 @@
 -codebase c'est quoi?
 -c'est quoi bande-passante,DBT,scrutora,baseline,OSCAL
 -generer une liste de CVE que ma machine peut etre vulnerable à
--web.nvd.nist.gov/view/ncp/repository lien vers une DB de pluseiurs security policies comme CIS et autre
--redhat.com/security/data/oval/ redhat
+
+
