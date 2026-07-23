@@ -400,6 +400,9 @@ C'est pour cela qu'on met généralement les bibliothèques à la fin.
 -Donc libopenscap est la librairie qui contient toutes les fonctionnalités d'audit,remédiation,tailoring et tout alors que oscap est l'outil du CLI qui appelle cette bibliothéque ce n'est qu'un client de libopenscap
 -On va commencer par créer un programme C et tester si on peut charger un fichier ds.xml et afficher ce qu'il contient avant tout,je vais travailler par itérations
 -sur C,argc siginifie argume,t count et argv signifie argument vector ce sont les arguments passés en ligne de commandes
+-J'ai réussi à écrire un code qui affiche les profils disponibles pour une distribution si je lui donne comme argument le chemin vers le fichier
+-Après les tests,il fonctionne parfaitement
+-Le code a réussi à afficher tous les profils
 
 
 
