@@ -255,12 +255,161 @@
 
 -Je ne sais pas quoi faire,c'est trop,le code source et gigantesque,je ne sais pas ou commencer et par quoi,je termine le stage ce lundi et je ne sais pas encore quoi faire,je n'ai rien réalisé,pas de rapport pas de code rien
 
+--------------------------------------------------------------------------------------------12/07/2026-------------------------------------------------------------------------------
+
+bibliographie/netographie
+referencer chaque paragraphe vers la ligne du bibliographie
+honneteté scientifique
+
+--------------------------------------------------------------------------------------------13/07/2026-------------------------------------------------------------------------------
+
+-Aujourd'hui je me suis allé a la STEG,des que je me suis arrivé,j'ai appelé Me Chawki pour planifier le rendez-vous,mais il a décroché et m'a envoyé un message en disant qu'il va me rappeler,cela s'est passé a 9h du matin.
+-A 11:30h je n'ai rien recu de sa part alors je lui ai rappelé encore une fois et il m'a dit vien maintenant
+-Je l'ai expliqué tout,SCAP,OpenSCAP et tout ce que j'ai recherché,puis je l'ai montré une démo et le rapport HTML que OpenSCAP génére et il a dit ce que je pensais depuis une semaine,mon projet n'a pas un grand ajout ou une innovation puisque OpenSCAP offre tout ca deja
+-Alors on s'est mit daccord de creer une plateforme basée sur Ansible et automatiser l'audit sur plusieurs machines
+-Maintenant je dois rechercher Ansible
+
+--------------------------------------------------------------------------------------------14/07/2026-------------------------------------------------------------------------------
+
+-Il s'est avéré qu'il existe des paquets,ou autre outils construits sur OpenSCAP,ils se trouvent dans le dossier openscap/utils
+
+-oscap:L'outil principal,scanne, valide, génère des rapports et des fixes.Toute la logique XCCDF/OVAL passe par lui.C'est ce que chaque tâche Ansible appellera sur chaque machine.
+
+-autotailor:Génère un fichier de tailoring (profil personnalisé) en ligne de commande.Prend un profil de base + règles à activer/désactiver + valeurs de variables.Alternative CLI à SCAP Workbench, sans interface graphique.
+
+-oscap-ssh:Lance oscap sur une machine distante via SSH(OpenSCAP doit etre installé sur la machine distante).Transfère les fichiers d'entrée, exécute le scan, rapatrie les résultats.Ne laisse aucune trace sur la machine distante après coup.
+
+-oscap-vm:Scanne une VM directement depuis l'hôte de virtualisation.Scan "offline" — n'installe rien et ne modifie rien dans le VM invité.Pas besoin qu'OpenSCAP soit présent à l'intérieur du VM.
+
+-oscap-docker:Même principe qu'oscap-vm, mais pour des images/conteneurs Docker.Scan offline, sans exécuter le conteneur ni y installer quoi que ce soit.Utile pour auditer une image avant de la déployer.
+
+-oscap-podman:Équivalent d'oscap-docker, pour l'écosystème Podman.Même logique de scan offline sur images/conteneurs.Séparé de Docker car les deux moteurs diffèrent techniquement.
+
+-oscap-chroot:Scan offline d'un système de fichiers monté à un chemin arbitraire.Utile pour des formats de conteneurs non couverts par Docker/Podman.Un script plus générique, pour des cas particuliers hors standard.
+
+-scap-as-rpm:Empaquette du contenu SCAP (profils, règles) en paquet RPM installable.Pensé pour la distribution de contenu sur écosystème RHEL/Fedora.
+
+
+-Ansible est un outil d'automatisation informatique,il appartient à la famille de Infrastructure As Code,qui permet de configurer, déployer et administrer des serveurs de manière automatique.
+-Le principe est le suivant,au lieu de me connecter a chaque machine et la configurer,je cree une machine appelée control node et j'ecris un document en yaml appelé playbook qui contient les taches que les machines doivent executer,ce dernier sera envoyé a toutes les machines choisies pour qu'elles realisent la mission
+
+-J'ai eu encore de doute sur l'utilité de projet s'il existe deja une solution sous la forme de oscap-ssh mais oscap-ssh ne peut se connecter qu'a une seule machine a la fois et moi j ai beosin d inventaire,profiles,centralisation,Gestion d'un parc et tout,BD et tout
+
+
+--------------------------------------------------------------------------------------------15/07/2026-------------------------------------------------------------------------------
+
+-Je vais commencer par etudier SSH
+-SSH est un protocole qui reglemente comment se connecter a une autre machine,
+
+--------------------------------------------------------------------------------------------16/07/2026-------------------------------------------------------------------------------
+
+-SSH(Secure SHell):est un protocole réseau qui nous permet de nous connecter à une ou des machines a distance d'une facon sécurisée(chiffrée),il remplace d'autres anciennes méthodes comme Telnet qui envoyaient les données en clair.
+-SSH est basé sur l'architecture client-serveur ou on a une machine qui initie la connexion(client) et une autre qui la reçoit(serveur)
+-Le client doit savoir l'adresse ip du serveur et le nom du user qui va se connecter avec(ssh user@adresse_ip_serveur)
+-Le serveur doit avoir un processus serveur ssh installé et lancé(sudo apt install openssh-server && sudo systemctl start ssh),c'est le processus sshd,qui recoit les tentatives de connexion,les authentifie et crée pour chaque client une session terminal ou il exécute ses commandes
+-Les étapes de la connexions sont les suivantes:le client initie la connexion et avant tout se met daccord avec le serveur sur le chiffrement du tunnel,puis signale au serveur sa clé publique pour que ce dernier la vérifie s'il la posséde ou non avant tout(si la clé publique n'est pas présente sur le serveur il refuse la connexion),s'il la posséde il envoie un défi cryptographique au client qui va le signer avec sa clé privée et renvoyer sa réponse(la clé privée reste toujours sur la machine du client,elle ne s'envoie jamais sur le réseau),finalement le serveur vérifie la signature avec sa clé publique et valide ou refuse la connexion
+
+
+
+
+-J'ai remarqué que Ansible est basé sur ssh donc j'ai décidé de plus apprendre les fondements de SSH
+-J'ai décidé de le tester sur un environnement,lancer un lab(mon propre environnement de tests),Il existe plusieurs sites d'apprentissage,quelques uns offre des labs guidés et d'autres offrent des playgrounds,qui sont des environnement temporaires sur le cloud,ils m'offrent une VM que je peux manipuler comme je veux,par exemple il existe la plateforme KillerCoda,qui m'offre un playground ubuntu,j'ai essayé de me connecter en ssh depuis ma machine vers eux mais je n'ai pas pu car ils ont demandé un mdp que je n'ai pas et je crois que c'est l'adresse IP de toute l'infrastructure pas la simple VM que j'ai lancé donc ca serait impossible
+-J'ai eu l'idée que la VM sur KillerCoda devient le client et mon PC devient le serveur donc je me connecte depuis ssh vers mon pc,un seul probleme est que je n'ai pas une adresse ip publique,la seule adresse ip publique est celle de mon Fournisseur Internet,donc je dois configurer mon routeur(le box) pour qu'il redirige les connexions au port 22 vers mon PC qui sera difficile car chaque box est différent et il existe des risques de sécurité si je crée une mauvaise configuration
+-Il existe d'autres méthodes comme exposer mon PC vers l'internet en utilisant une adresse IP virtuelle mais j'ai peur des attaques,par exemple quelqu'un peut se connecter a mon ordinateur s'il est en ecoute sur KillerCoda et des attaquants sur internet peuvent employer la brute force,donc j'ai décidé d'utiliser Oracle Cloud qui nous offrent deux VMs gratuitement mais je n'ai pas une carte bancaire.
+-J'ai décidé de créer deux VMs alors depuis VirtualBox
+-J'ai crée deux VMs ubuntu24 sur VirtualBox,j'avais des problemes de connexion entre eux car les deux partagaient la meme adresse ip,la solution etait d'aller sur les parametres de chaque VM de VirtualBox et de changer la carte réseau de chacune pour qu'elle soit directement liee a mon box et pour recevoir une adresse ip car au debut chacune avait son propre routeur et la meme adresse ip donc la connexion entre eux etait impossible
+-J'ai etabli la connexion entre les deux machines et tout fonctionne parfaitement
+
+-Lorsque je me connecte a une autre machine avec ssh,je suis en train d'utiliser le protocole d'administration a distance ssh,j'ai toujours besoin d'une machine client et une machine serveur,sur le serveur j'ai besoin d'installer le package openssh-server(sudo apt install openssh-server) et de l'activer avec(sudo systemctl start ssh),cela va installer le daemon sshd qui tourne en arriere plan et attend les connexions des autres machines clientes,a chaque connexion il attribue un terminal donc un processus qui gere les commandes envoyees par la machine cliente.
+
+-On peut meme creer une connexion ssh pour envoyer simplement une seule commande et la couper (ssh user@adresse_ip "ls")
+-On peut meme faire ca (ssh user@adresse_machine "ls && touch ~/test.txt && ls && rm ~/test.txt && ls")
+
+-On peut aussi copier des fichiers depuis une machine vers une autre en utilisant ssh(scp chemin_vers_fichier user@adresse_ip_machine_distante:nouveau_chemin)
+-Pour copier les directories on ajoute -r juste apres scp
+
+-Lorsque j'eteins la machine serveur,la connexion sera immédiatement coupée et le client sera notifié
+
+-Sur SSH on peut choisir de nous authentifier soit avec le mot de passe(vulnerable au brute force) du user ciblé soit avec les clés ssh ou les clés sont considérées plus sécurisées car on évite d'envoyer un mdp sur le réseau
+
+
+--------------------------------------------------------------------------------------------17/07/2026-------------------------------------------------------------------------------
+
+-Je crois que j'ai tout lu sur ssh pour mon cas d'usage,maintenant je passe à Ansible
+-Je dois étudier le format ini aussi car les invnetaires de Ansible peuvent etre ecrits soit en .ini soit en .yaml
+
+--------------------------------------------------------------------------------------------18/07/2026-------------------------------------------------------------------------------
+
+-Aujourd'hui je vais installer openSCAP et SSG sur l'un des VMs et le tester pour que je puisse écrire un playbook ansible et tester
+-D'abord je dois installer OpenSCAP et mémoriser les étapes a faire afin de compiler le code source pour pouvoir utiliser OpenSCAP
+
+-Quand on installe un projet depuis github ou d'autres sources,on obtient le code source qui est un ensemble de fichiers .c,.cpp.h qui sont des fichiers lisibles par les humains que les machines ne les comprennent pas car le processus ne comprend que le binaire il faut donc traduire ces fichiers en binaire exécutable,c'est ca la compilation.
+-C'est pour cette raison qu'on a les outils make et cmake.
+-make:l'outil qui compile vraiment,il appelle gcc/g++ sur chaque fichier dans le bon ordre et en respectant les dépendances entre les fichiers,mais il a besoin d'instructions précises(quel fichier compiler,avec quelles options,dans quel ordre,quelles bibliotheques lier etc..),ces instructions sont ecrites dans le fichier Makefile,mais le probleme qu'écrire un Makefile à la main pour un gros projet comme OpenSCAP (des centaines de fichiers, plein de dépendances système comme OpenSSL, libxml2, etc.) serait un cauchemar, et il faudrait un Makefile différent pour chaque OS/configuration.
+-cmake:est l'outil qui genere automatiquement le makefile adapté à cette machine a partir d'une description generique du projet,cmake ne compile pas le projet,il lit un fichier appelé CMakeLists.txt(écrit une fois par les développeurs du projet, ex: OpenSCAP),qui décrit le projet de façon générique ("voici les fichiers sources, voici les bibliothèques nécessaires comme libxml2..."),Il regarde ta machine : quel OS as-tu, quel compilateur, quelles bibliothèques sont installées et où,Il génère un Makefile sur mesure, adapté précisément à ta configuration
+
+1)Aller depuis le terminal sur le dossier de OpenSCAP et creer le dossier build s'il n'existe pas puis se rendre dedans
+2)
+
+
+--------------------------------------------------------------------------------------------19/07/2026-------------------------------------------------------------------------------
+
+-En C on utilise le compilateur gcc pour compiler,la syntaxe est la suivante gcc nom_fichier_1 nom_fichier_2 .... nom_fichier_n -l<nom_lib_1> -l<nom_lib_2> ... -l<nom_lib_n> <target>
+ou de meme gcc nom_fichier_2 nom_fichier_n .... nom_fichier_1 -l<nom_lib_n> -l<nom_lib_2> -l<nom_lib_1> <target>
+-On peut aussi ecrire les bibliotheques avant les noms des fichiers mais ce n'est pas conseillé de le faire car plusieurs compilateurs ne pourront pas travailler
+-On peut ecrire les fichiers dans l'ordre que l'on souhaite et meme les bibliotheque
+-Imagine ce programme :
+main.c
+#include <math.h>
+
+int main() {
+    double x = sqrt(25);
+}
+Lorsque GCC compile main.c, il produit main.o,puis le linker commence son travail.Il lit les éléments de gauche à droite.
+-Cas correct:
+gcc main.o -lm
+Le linker voit :
+
+main.o
+Il remarque que main.o utilise sqrt().Ensuite il ouvre libm.so (-lm).Il y trouve sqrt().Tout est bon.
+-Cas qui peut poser problème:
+gcc -lm main.o
+Le linker commence par :
+libm.so
+
+À ce moment-là, il ne connaît encore aucun fichier objet qui demande sqrt().Il peut donc considérer que cette bibliothèque n'est pas nécessaire.
+Puis il lit main.o et découvre que sqrt() est nécessaire,mais il est déjà passé sur libm.so,Résultat possible :undefined reference to 'sqrt'
+C'est pour cela qu'on met généralement les bibliothèques à la fin.
+
+-Pour C dans la majorité du temps c'est: gcc fichier.c bibliothéques -o programme
+
+-Je vais étudier make et CMake pour comprendre la compilation des projets et savoir quelles instructions je dois écrire en Ansible pour installer et configurer OpenSCAP et SSG sur les différents noeuds
+
+-Je dois maintenant savoir les étapes d'installation et configuration de OpenSCAP sur le systeme
+-J'ai finalement compris que font cmake et make
+-Afin de tester Ansible et ssh pour l'installation et la configuration de OpenSCAP et SSG,je me suis connecté depuis VM1 vers VM2 en utilisant SSH,puis j'ai installé et compilé les deux projets sur VM2 et enfin évalué la machine avec l'un des profils et renvoyé le rapport.html vers VM1
+-Maintenant je dois voir toutes les dependances et les stocker pour automatiser l'installation
+
+-Il s'est avéré qu'il existe une documentation sur OpenSCAP et SSG qui expliquent étape par étape comment installer les deux projets ainsi que toutes leurs dépendances
+
+-Je vais continuer la lecture du site officiel de OpenSCAP
+
+--------------------------------------------------------------------------------------------23/07/2026-------------------------------------------------------------------------------
+
+-Je suis tres en retard et je dois commencer le développement,mais avant tout je dois comprendre la différence entre oscap et libopenscap
+-Donc libopenscap est la librairie qui contient toutes les fonctionnalités d'audit,remédiation,tailoring et tout alors que oscap est l'outil du CLI qui appelle cette bibliothéque ce n'est qu'un client de libopenscap
+-On va commencer par créer un programme C et tester si on peut charger un fichier ds.xml et afficher ce qu'il contient avant tout,je vais travailler par itérations
+
+
 
 
 -Idees:Interface Graphique pour OpenSCAP+BD+Stats+AI+Ansible
 
 
 
+-A9ra 3al port forwarding
+-es2el anissa 3al allocation dynamique de disques
+-Oscap-ssh
 -Lire le site de OpenSCAP
 -Lire Repo OpenSCAP et Repo ComplianceAsCode sur GitHUB
 
