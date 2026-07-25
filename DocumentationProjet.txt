@@ -404,6 +404,296 @@ C'est pour cela qu'on met généralement les bibliothèques à la fin.
 -Après les tests,il fonctionne parfaitement
 -Le code a réussi à afficher tous les profils
 
+-Je dois lire les fichiers des signatures pour comprendre ce que je suis en train de faire
+
+-Je suis en train de lire les fichiers,quelques uns sont tres longs mais je dois perseverer,je n'ai plus de temps,la bonne nouvelle est que si je comprend tous les fichiers et ce que fait chaque fonction tout le reste deviendra tres facile a implemnter et je serai meme capable a ecrire mon propre code et guide l'IA a mieux m'aider sans suivre ces instructions avuglement
+
+-Sur C,l'allocation de la mémoire est l'une des fonctionnalités les plus délicates,car une seule erreur peut causer une fuite de mémoire(on a oublié de libérer un espace mémoire),Segmentation Fault(Un programme essaye d'acceder a un espace mémoire dont il n'est pas proprietaire) ou un double-free(libérer deux fois le meme espace mémoire) qui peut causer des dégats au systeme et des crashs,donc nous devons etre attentifs
+-Il existe aussi le probleme de ownership,chaque fonction en C qui retourne un pointeur pose la question : "Est-ce à moi de libérer cette mémoire (free) ou est-ce que la bibliothèque la gère en interne ?",donc soit le programme appelle la fonction et il la delegue l'action de libérer soit il doit lui meme la libérer,pour résoudre ce probléme il existe des conventions de nommage que les développeurs en C suivent
+-Une regle en C est celui qui alloue doit libérer
+
+
+--------------------------------------------------------------------------------------------23/07/2026-------------------------------------------------------------------------------
+
+-Avant de passer a l'analyse d'autres fichiers je vais avant creer un premier prototype,qui choisit un profil et fait l'audit
+-OpenSCAP gére tout le travail comme un struct,depus sa perspective,tout le contenu SCAP qu'in va utiliser peut etre modélisé dans une struct,c'est la struct session.
+-Au début nous devons créer cette session avec le fichier physique,mais pour le moment le struct ne contient que le chemin vers le fichier physique,mais nous devons avoir le benchmark,policy,profile et tout,alors on utilise les fonctions load,soit on utilise load_xccdf,load_oval,load_cpe,load_engine_plugins on peut simplement utiliser load qui orchestre tout leur travail
+-Apres le chargement du benchmark(xccdf),nous devons choisir un profil et auditer par rapport a ce dernier
+
+-La librairie openscap gere tout le travail sous forme de session,elle cree une struct appelée xccdf_session qui encapsule tout,donc openscap modélise tout le travail sous forme de la struct session
+-Il modélise aussi tout fichier qu'on va gérer sous la forme oscap_source,ce n'est pas une modélisation concréte mais une abstraite ou tout fichier manipulé va etre va etre représenté comme ca et apres on cree l'arbre DOM de XML,donc oscap_source est la modélisation de tout fichier que openscap va utiliser,mais il n'est concrétement parsé qu'apres le load
+
+
+-xccdf_session.h{
+	1)xccdf_session_new
+	-Entrée : const char *filename (Le chemin d'accès vers un fichier XCCDF ou DataStream).  
+	-Retour : struct xccdf_session * (Un pointeur vers la session nouvellement créée, ou NULL en cas d'erreur).  
+	-Action : Alloue et initialise une nouvelle session de scan en tentant de reconnaître automatiquement le type et la structure du fichier fourni.
+	
+	2)xccdf_session_new_from_source
+	-Entrée : struct oscap_source *source (Un pointeur vers une source abstraite OpenSCAP représentant un flux XML).
+	-Retour : struct xccdf_session * (Un pointeur vers la session nouvellement créée, ou NULL en cas d'erreur).
+	-Action : Alloue et initialise une nouvelle session directement depuis une ressource déjà chargée en mémoire ou issue d'un flux abstrait.
+	
+	3)xccdf_session_free
+	-Entrée : struct xccdf_session *session (La session à détruire).
+	-Retour : void (Aucun).  
+	-Action : Libère proprement toute la mémoire occupée par la session et ses composants internes afin d'éviter les fuites de mémoire.
+	
+	4)xccdf_session_result_reset
+	-Entrée : struct xccdf_session *session (La session dont on veut vider les résultats).
+	-Retour : void (Aucun).
+	-Action : Réinitialise et efface les politiques XCCDF, les règles sélectionnées/ignorées, ainsi que les caractéristiques système et résultats OVAL cumulés, tout en conservant
+	la session active.
+	
+	5)xccdf_session_get_filename
+	-Entrée : const struct xccdf_session *session (La session consultée).
+	-Retour : const char * (La chaîne de caractères du chemin du fichier d'origine).
+	-Action : Permet de consulter le nom ou le chemin du fichier qui a servi à instancier la session.
+	
+	6)xccdf_session_is_sds
+	-Entrée : const struct xccdf_session *session (La session consultée).
+	-Retour : bool (true si c'est un Source DataStream, false sinon).
+	-Action : Détermine si le fichier de sécurité chargé dans la session utilise le format conteneur standardisé Source DataStream.
+	
+	7)xccdf_session_skip_rule
+	-Entrée : struct xccdf_session *session (La session active), const char *rule (L'identifiant de la règle à exclure).
+	-Retour : void (Aucun).
+	-Action : Met une règle sur liste noire pour qu'elle soit explicitement ignorée et sautée lors de la phase d'évaluation.
+	
+	8)xccdf_session_set_validation
+	-Entrée : struct xccdf_session *session (La session active), bool validate (Activer/Désactiver la validation), bool full_validation (Activer la validation complète des
+	entrées et sorties).
+	-Retour : void (Aucun).
+	-Action : Ajuste le niveau de validation des schémas XSD (désactivé, partiel à l'entrée, ou complet à l'entrée et à la sortie).
+	
+	9)xccdf_session_set_signature_validation
+	-Entrée : struct xccdf_session *session (La session active), bool validate (false pour ignorer la vérification des signatures).
+	-Retour : void (Aucun).
+	-Action : Active ou désactive la vérification des signatures cryptographiques intégrées aux documents XML.
+	
+	10)xccdf_session_set_signature_enforcement
+	-Entrée : struct xccdf_session *session (La session active), bool enforce (true pour exiger les signatures).
+	-Retour : void (Aucun).
+	-Action : Force l'obligation de signature : si activé à true, tout fichier XML non signé cryptographiquement sera immédiatement considéré comme invalide.
+	
+	11)xccdf_session_set_thin_results
+	-Entrée : struct xccdf_session *session (La session active), bool thin_result (true pour activer le mode allégé).
+	-Retour : void (Aucun).
+	-Action : Demande à OpenSCAP de générer des résultats fins/allégés (sans les détails complexes de chaque critère d'évaluation OVAL, en gardant uniquement le strict minimum)
+	dans l'ARF ou les fichiers séparés.
+	
+	12)xccdf_session_set_datastream_id
+	-Entrée : struct xccdf_session *session (La session active), const char *datastream_id (L'identifiant du flux choisi).
+	-Retour : void (Aucun).
+	-Action : Sélectionne l'ID du DataStream spécifique à extraire et à évaluer au sein d'un fichier conteneur multi-flux.
+	
+	13)xccdf_session_set_component_id
+	-Entrée : struct xccdf_session *session (La session active), const char *component_id (L'identifiant du composant choisi).
+	-Retour : void (Aucun).
+	-Action : Sélectionne l'ID du composant XML précis à analyser à l'intérieur du DataStream.
+	
+	14)xccdf_session_get_result_id
+	-Entrée : struct xccdf_session *session (La session active).
+	-Retour : const char * (L'ID du bloc de résultats généré).
+	-Action : Récupère la chaîne identifiant le bloc de résultats XCCDF de l'évaluation.
+	
+	15)xccdf_session_set_user_tailoring_file
+	-Entrée : struct xccdf_session *session (La session active), const char *user_tailoring_file (Le chemin du fichier de tailoring).
+	-Retour : void (Aucun).
+	-Action : Injecte un fichier de personnalisation utilisateur (Tailoring) afin de modifier les variables ou l'activation des règles par défaut (à appeler avant le chargement
+	de la session).
+	
+	16)xccdf_session_get_user_tailoring_file
+	-Entrée : struct xccdf_session *session (La session active).
+	-Retour : struct oscap_source * (La source du fichier de tailoring).
+	-Action : Récupère la structure source encapsulant le fichier de tailoring configuré.
+	
+	17)xccdf_session_set_loading_flags
+	-Entrée : struct xccdf_session *session (La session active), xccdf_session_loading_flags_t flags (Le masque de bits d'options).
+	-Retour : void (Aucun).
+	-Action : Active ou désactive à l'aide d'un masque de bits le chargement des dépendances structurelles optionnelles (moteurs OVAL, CPE, SCE, plugins) lors de
+	l'initialisation. 
+	
+	18)xccdf_session_set_custom_oval_files
+	-Entrée : struct xccdf_session *session (La session active), char **oval_filenames (Tableau de chaînes contenant les chemins des fichiers OVAL).
+	-Retour : void (Aucun).
+	-Action : Force l'utilisation d'une liste de fichiers de définitions OVAL personnalisés à la place de la détection automatique prévue dans le fichier XCCDF.
+	
+	19)xccdf_session_set_custom_oval_eval_fn
+	-Entrée : struct xccdf_session *session (La session active), xccdf_policy_engine_eval_fn eval_fn (Le pointeur de la fonction callback C).
+	-Retour : void (Aucun).
+	-Action : Enregistre une fonction de rappel C personnalisée qui se déclenchera à chaque évaluation de règle gérée par le moteur OVAL (à appeler avant l'analyse des fichiers
+	OVAL)
+	
+	20)xccdf_session_set_without_sys_chars_export
+	-Entrée : struct xccdf_session *session (La session active), bool without_sys_chars (true pour masquer les caractéristiques système).
+	-Retour : void (Aucun).
+	-Action : Configure les exports pour inclure ou exclure le bloc complet inventoriant les caractéristiques du système collectées par OVAL.
+	
+	21)xccdf_session_set_oval_results_export
+	-Entrée : struct xccdf_session *session (La session active), bool to_export_oval_results (true pour exporter).
+	-Retour : void (Aucun).
+	-Action : Détermine s'il faut générer et exporter les fichiers de résultats techniques OVAL bruts à la fin du scan.
+	
+	22)xccdf_session_set_oval_variables_export
+	-Entrée : struct xccdf_session *session (La session active), bool to_export_oval_variables (true pour exporter).
+	-Retour : void (Aucun).
+	-Action : Indique si les fichiers contenant les valeurs finales prises par toutes les variables OVAL au cours du scan doivent être exportés.
+	
+	23)xccdf_session_set_xccdf_export
+	-Entrée : struct xccdf_session *session (La session active), const char *xccdf_file (Le chemin du fichier XML de destination ou NULL).
+	-Retour : bool (true si le chemin a été configuré avec succès).
+	-Action : Enregistre l'emplacement sur le disque où devra être généré le fichier XML de résultats XCCDF (NULL désactive cet export).
+	
+	24)xccdf_session_set_arf_export
+	-Entrée : struct xccdf_session *session (La session active), const char *arf_file (Le chemin de l'archive ARF ou NULL).
+	-Retour : bool (true si configuré avec succès).
+	-Action : Configure l'emplacement cible destiné à la création du rapport global consolidé au format standardisé ARF (Asset Reporting Format).
+	
+	25)xccdf_session_set_report_export
+	-Entrée : struct xccdf_session *session (La session active), const char *report_file (Le chemin du rapport HTML ou NULL).
+	-Retour : bool (true si configuré avec succès).
+	-Action : Configure l'emplacement sur le disque où sera écrit le rapport d'audit visuel final mis en page au format HTML.
+	
+	26)xccdf_session_set_profile_id
+	-Entrée : struct xccdf_session *session (La session active), const char *profile_id (L'ID strict et complet du profil choisi).
+	-Retour : bool (true si le profil existe et a été correctement affecté).
+	-Action : Sélectionne le profil de sécurité précis à appliquer pour l'audit en lui fournissant son identifiant unique exact.
+	
+	27)xccdf_session_get_profile_id
+	-Entrée : struct xccdf_session *session (La session active).
+	-Retour : const char * (L'ID du profil actif, ou NULL).
+	-Action : Permet de consulter l'identifiant du profil qui est actuellement sélectionné pour l'évaluation.
+	
+	28)xccdf_session_load
+	-Entrée : struct xccdf_session *session (La session à charger).
+	-Retour : int (0 en cas de succès).
+	-Action : Macro-fonction qui déclenche le traitement et l'analyse globale de toutes les structures nécessaires au scan (XCCDF, CPE, OVAL et plugins associés).
+	
+	29)xccdf_session_load_xccdf
+	-Entrée : struct xccdf_session *session (La session active).
+	-Retour : int (0 en cas de succès).
+	-Action : Parse et charge spécifiquement la structure XCCDF (les règles, les profils). Cette fonction est réentrante : changer un ID de composant et la rappeler libère
+	automatiquement l'ancien arbre XCCDF pour charger le nouveau.
+	
+	30)xccdf_session_load_cpe
+	-Entrée : struct xccdf_session *session (La session active).
+	-Retour : int (0 en cas de succès).
+	-Action : Charge et interprète les dictionnaires d'identification de plateformes CPE configurés pour la session.
+	
+	31)xccdf_session_load_oval
+	-Entrée : struct xccdf_session *session (La session active).
+	-Retour : int (0 en cas de succès).
+	-Action : Charge et pré-analyse l'ensemble des fichiers contenant les définitions techniques de critères automatisés OVAL.
+	
+	32)xccdf_session_load_tailoring
+	-Entrée : struct xccdf_session *session (La session active).
+	-Retour : int (0 en cas de succès).
+	-Action : Charge et applique concrètement les modifications décrites dans le fichier de personnalisation (Tailoring) configuré au préalable.
+	
+	33)xccdf_session_evaluate
+	-Entrée : struct xccdf_session *session (La session prête à être exécutée).
+	-Retour : int (0 si l'évaluation s'est déroulée avec succès).
+	-Action : Lance le scan de sécurité réel sur la machine. Cette fonction teste le système local en exécutant tous les critères par rapport au profil chargé et calcule les
+	statuts des règles.
+	
+	34)xccdf_session_export_xccdf
+	-Entrée : struct xccdf_session *session (La session évaluée).
+	-Retour : int (0 en cas de succès d'écriture).
+	Action : Génère et écrit physiquement sur le disque dur le fichier de résultats au format XML XCCDF configuré en section 7.
+	
+	35)xccdf_session_export_oval
+	-Entrée : struct xccdf_session *session (La session évaluée).
+	-Retour : int (0 en cas de succès d'écriture).
+	-Action : Génère et écrit physiquement sur le disque dur les fichiers XML contenant les résultats OVAL bruts ainsi que l'état des variables.
+	
+	36)xccdf_session_export_arf
+	-Entrée : struct xccdf_session *session (La session évaluée).
+	-Retour : int (0 en cas de succès d'écriture).
+	-Action : Compresse, assemble et écrit physiquement l'archive globale consolidée ARF sur le disque dur au chemin préalablement choisi.
+	
+	37)xccdf_session_get_policy_model
+	-Entrée : const struct xccdf_session *session (La session consultée).
+	-Retour : struct xccdf_policy_model * (Le modèle de politique XCCDF ou NULL en cas d'erreur).
+	-Action : Extrait de la mémoire l'arbre complet d'objets représentant la politique XCCDF (nécessite d'avoir exécuté xccdf_session_load_xccdf en amont).
+	
+	38)xccdf_session_get_xccdf_policy
+	-Entrée : const struct xccdf_session *session (La session consultée).
+	-Retour : struct xccdf_policy * (La structure interne de politique XCCDF ou NULL).
+	-Action : Donne un accès direct à l'objet interne représentant la politique XCCDF actuellement active dans le contexte de la session.
+	
+	39)xccdf_session_get_base_score
+	-Entrée : const struct xccdf_session *session (La session consultée).
+	-Retour : float (La note globale sous forme de nombre à virgule).
+	-Action : Calcule et retourne le score global de conformité obtenu par le système lors de la toute dernière évaluation.
+	
+	40)xccdf_session_get_rule_results
+	-Entrée : const struct xccdf_session *session (La session consultée).
+	-Retour : struct xccdf_rule_result_iterator * (Un itérateur sur les résultats des règles).
+	-Action : Génère et retourne un pointeur vers un objet itérateur conçu pour parcourir un par un les résultats complets de chaque règle évaluée.
+	
+	41)xccdf_session_remediate
+	-Entrée : struct xccdf_session *session (La session contenant l'évaluation à corriger).
+	-Retour : int (0 en cas de succès global de la remédiation).
+	-Action : Exécute les scripts de réparation système. Parcourt les règles en échec, extrait les scripts de remédiation associés (Bash/Ansible) inclus dans le benchmark, les
+	exécute sur la machine locale pour corriger le système, puis met à jour la structure de résultats.
+	
+	42)xccdf_session_build_policy_from_testresult
+	-Entrée : struct xccdf_session *session (La session), const char *testresult_id (L'ID du bloc de résultats passés dans le XML, ou NULL pour le dernier en date).
+	-Retour : int (0 en cas de succès).
+	-Action : Analyse un rapport de résultats XML historique préexistant pour rebâtir en mémoire la politique correspondante, préparant ainsi la session à appliquer une
+	remédiation a posteriori.
+	
+	43)xccdf_session_generate_guide
+	-Entrée : struct xccdf_session *session (La session chargée), const char *outfile (Le chemin du fichier HTML à créer).
+	-Retour : int (0 en cas de succès de création).
+	-Action : Exporte un guide papier/numérique au format HTML statique recensant l'intégralité textuelle des règles, descriptions et profils du benchmark de la session.
+	
+	44)xccdf_session_export_all
+	-Entrée : struct xccdf_session *session (La session à exporter puis détruire).
+	-Retour : int (0 en cas de succès).
+	-Action : Déclenche l'écriture groupée de toutes les sorties configurées (XML XCCDF, ARF et rapport HTML HTML). Attention : cette opération modifie de façon destructive les
+	arbres XML en mémoire, aucune autre fonction de session ne doit être appelée après celle-ci et xccdf_session_free doit être exécuté immédiatement après.
+	
+	45)xccdf_session_set_show_rule_details
+	-Entrée : struct xccdf_session *session (La session active), bool show_rule_details (true pour afficher les textes détaillés).
+	-Retour : void (Aucun).
+	-Action : Active ou désactive l'affichage verbeux des métadonnées des règles (descriptions longues, justifications rationnelles) au sein de la sortie standard en ligne de
+	commande lors des traitements.
+}
+
+--------------------------------------------------------------------------------------------25/07/2026-------------------------------------------------------------------------------
+
+-struct xccdf_session se trouve dans /src/xccdf/xccdf_session.c
+-strcu oscap_source se trouve dans /src/source/oscap_source.c
+-struct oscap_list se trouve dans /src/common/list.h
+-struct xccdf_policy_model se trouve dans /src/xccdf_policy/xccdf_policy_priv.h
+-struct xccdf_tailoring se trouve dans /src/xccdf/item.h
+-struct xccdf_benchmark_item se trouve dans /src/xccdf/item.h
+-struct xccdf_policy se trouve dans /src/xccdf_policy/xccdf_policy_priv.h
+-struct oscap_iterator se trouve dans src/common/list.h
+
+-Les sous-structures de item sont profile,benchmark,rule,group,value et result
+
+-xccdf_benchmark est la représentation en mémoire avec C du fichier xccdf_benchmark
+-policy_model est représente tout le contexte d'évaluation,le benchmark le fichier de tailoring,tout..
+-Dans openscap un item est un type abstrait,il peut représenter plusieurs sous-classes(profile,benchmark,rule,group,value et result),mais avec nuance,,par exemple le type
+xccdf_benchmark n'existe pas c'est simplement une alias il est juste concu pour signaler que cet item est un benchmark,mais concrétement le type qui représente le benchmark est xccdf_benchmark_item meme chose pour les autres sous-classes
+-Les autres structs comme xccdf_policy_model reference xccdf_benchmark et pas xccdf_benchmark_item car la struct xccdf_benchmark_item ne contient que les donnees du benchmark pas l'id et les autres donnees propre a xccdf_item et comme ca si on reference xccdf_benchmark qui est en réalité xccdf_item on aura acces a toutes les donnees celles du item et celles du benchmark
+-Dans OpenSCAP, xccdf_item est un type abstrait/générique qui peut représenter plusieurs sous-classes (profile, benchmark, rule, group, value, result). Le type xccdf_benchmark n'existe pas en tant que struct séparée — c'est un alias qui désigne un xccdf_item dont le champ type vaut XCCDF_BENCHMARK. La partie des données propre et spécifique au benchmark (profils, style, dictionnaires...) est stockée dans sub.benchmark, de type xccdf_benchmark_item — mais ce n'est qu'une partie de la représentation complète, l'autre partie (id, titre, description...) étant dans item_base, commune à tous les types d'item. Les autres structs comme xccdf_policy_model référencent xccdf_benchmark (= le xccdf_item complet) et non xccdf_benchmark_item directement, car ce dernier seul ne contient pas l'id ni les autres données communes — en référençant l'xccdf_item complet, on a accès à la fois aux données communes et aux données spécifiques au benchmark.
+
+-struct xccdf_policy est la strutcutre qui représente la résolution d'un profil en mémoire,car un profil est la sélection de plusieurs règles depuis un benchmark,par exemple dans le fichier xml,le profile indique qu'on choisit les regles 1,2,5,50,100,etc..,et que le profile cis_level_2 étend cis_level_1 et on peut aussi ajouter un groupe de regles et désactiver 
+une d'eux,le profil indique tout ca mais ne donne pas la liste finale,c'est la ou intervient la résolution,résoudre un profil c'est produire la liste finale de tout ca.
+-xccdf_policy représente en mémoire une policy résultant de l'application/résolution d'un profil XCCDF sur un benchmark.
+-xccdf_policy représente en mémoire la policy construite à partir d'un profil, après prise en compte de ses héritages, sélections, désélections et autres paramètres ; cette policy permet ensuite de déterminer la configuration effective à évaluer.
+
+-xccdf_policy est la structure qui porte à la fois le profil brut (référence vers xccdf_profile, différentiel, potentiellement hérité) et le résultat de sa résolution (rules{}, la liste finale et plate des règles actives). Résoudre un profil, c'est l'algorithme qui transforme les instructions différentielles du XML (sélections individuelles, groupes, héritage entre profils via extends, exceptions) en cette liste finale — et c'est ce résultat résolu, stocké dans le xccdf_policy, qui est ensuite utilisé pour piloter l'évaluation réelle du scan.
+
+
+-Yesser tdhaker bich tchouf 7keyet validation mta3 les fichiers walla sources ma3moula automatiquement walla ngereha ena w zeda chouf 7keyet gestion des erreurs
+-Yesser zid chouf 7keyet el lazy loading,sa3at ki utilisateur y7eb ychouf rules kahaw mouch lezem ta3mel load lel oval,tdhaker flags ta3 xccdf_load_all w kol
+-Yesser zid a9ra 3al résolution mta3 policies,na3rafech niveau d'abstraction ta3 el API fel 7keya hethi,ama 9rit men 3and el claude ennou ya3mel résolution lel les profils el kol walla ena na5tar enehou walla enehom donc millowel a3mel prototype 3la kol chay mba3ed zid od5el fel details bich tet2aked
 
 
 
