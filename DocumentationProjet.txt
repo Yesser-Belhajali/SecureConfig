@@ -673,6 +673,8 @@ C'est pour cela qu'on met généralement les bibliothèques à la fin.
 -struct xccdf_benchmark_item se trouve dans /src/xccdf/item.h
 -struct xccdf_policy se trouve dans /src/xccdf_policy/xccdf_policy_priv.h
 -struct oscap_iterator se trouve dans src/common/list.h
+-enum oscap_document_type_t se trouve dans src/common/public/oscap.h
+-enum oscap_source_type_t se trouve dans src/source/oscap_source.c
 
 -Les sous-structures de item sont profile,benchmark,rule,group,value et result
 
@@ -690,10 +692,182 @@ une d'eux,le profil indique tout ca mais ne donne pas la liste finale,c'est la o
 
 -xccdf_policy est la structure qui porte à la fois le profil brut (référence vers xccdf_profile, différentiel, potentiellement hérité) et le résultat de sa résolution (rules{}, la liste finale et plate des règles actives). Résoudre un profil, c'est l'algorithme qui transforme les instructions différentielles du XML (sélections individuelles, groupes, héritage entre profils via extends, exceptions) en cette liste finale — et c'est ce résultat résolu, stocké dans le xccdf_policy, qui est ensuite utilisé pour piloter l'évaluation réelle du scan.
 
+-Maintenant je dois vérifdier les fonctions, si elles font exactement ce que je veux ou non,je dois vérifier si la fonction d'initialisation de la session remplit tous les champs ou non
 
+
+--------------------------------------------------------------------------------------------26/07/2026-------------------------------------------------------------------------------
+
+-Puisque la philosophie d'openscap est d'encapsuler tout le travail dans la struct xccdf_session,je dois d'abord initialiser cette dernière,pour créer une session les développeurs nous ont fourni deux constructeurs(la méthode en programmation orienté objet qui permet de créer un objet).
+1)Premier constructeur:xccdf_session_new_from_source:prend comme parametre un pointeur vers un objet de la struct oscap_source et nous retourne un pointeur vers un objet de type xccdf_session
+-l'objet oscap_source est une struct qui permet de modéliser un fichier utilisé par openscap,elle posséde quatre constructeurs,mais seulement le constructeur oscap_source_new_from_file est utilisé dans la création de xccdf_session
+2)Deuxième constructeur:xccdf_session_new:ce constructeur prend en parametre le chemin du fichier data stream ou xccdf,appelle le premier constructeur de xccdf_session appelé xccdf_session_new_from_source(on crée une session depuis oscap_source) et le seul constructeur de oscap_source qui permet de créer une session qui s'appelle oscap_source_new_from_file et produit un pointeur vers oscap_source.
+-oscap_source_new_from_file ne remplit que les champs source->origin.type et source->origin.filepath,le reste va normalement venir du premier constructeur de xccdf_session qui s'appelle xccdf_session_new_from_source
+-OpenSCAP encapsule tout le contexte dans xccdf_session, construit progressivement en plusieurs étapes. oscap_source possède plusieurs constructeurs (fichier, mémoire copiée, mémoire transférée, DOM existant), mais seul oscap_source_new_from_file est utilisé dans le chemin de création d'une session. Ce constructeur ne remplit que origin.filepath et origin.type — le reste des champs de oscap_source (scap_type, xml.doc, origin.version) est rempli paresseusement, à la demande, via des getters (oscap_source_get_scap_type, oscap_source_get_xmlDoc, oscap_source_get_schema_version). xccdf_session_new_from_source déclenche indirectement ce remplissage paresseux en appelant oscap_source_get_scap_type() pour déterminer le type de fichier — mais ne remplit lui-même que les champs propres à xccdf_session (options par défaut, listes vides). La majorité de xccdf_session (notamment xccdf.policy_model et oval.agents) reste à NULL après le constructeur, et n'est remplie que par un appel séparé et explicite à xccdf_session_load().
+-openscap utilise une technique tres répandue appelée le lazy loading,c'est un concept qui propose de ne faire des calculs que lorsqu'on a besoin de cette donnée a cet instant,ca veut dire si j'ai une classe de 100 champs et que j'en ai besoin que de 10 je ne charge que ces 10 maintenant,le reste je le cherche que losque j'en ai besoin 
+-Maintenant on passe au constructeur xccdf_session_new_from_source,il appelle oscap_source_get_filepath en utilisant oscap_source comme parametre,il permet de remplir le champ filepath
+-On remplit aussi en utilisant xccdf_session_new_from_source les champs/validate/validate_signature/enforce_signature/show_rule_details/signature_ctx/xccdf.base_score/oval.progress/check_engine_plugins/loading_flags/rules/skip_rules
+
+
+-Il existe des flags pour chaque session de openscpa qui détermine ce qu'on va charger pour cette session{
+	-XCCDF_SESSION_LOAD_NONE = 0,
+	-XCCDF_SESSION_LOAD_XCCDF = 1 << 0,
+	-XCCDF_SESSION_LOAD_CPE = 1 << 1,
+	-XCCDF_SESSION_LOAD_OVAL = 1 << 2,
+	-XCCDF_SESSION_LOAD_CHECK_ENGINE_PLUGINS = 1 << 3,
+	-XCCDF_SESSION_LOAD_ALL = XCCDF_SESSION_LOAD_XCCDF | XCCDF_SESSION_LOAD_CPE | XCCDF_SESSION_LOAD_OVAL | XCCDF_SESSION_LOAD_CHECK_ENGINE_PLUGINS
+}
+-Une variable flag qui est un nombre binaire va indiquer ce qu'on va réellement charger,par défaut on charge tout,xccdf,oval,cpe et check_engine_plugins
+-La logique de la fonction load est un AND binaire qui permet de conclure si la variable xccdf est activée ou non,flags est un enum de binaire qui permet de signaler les variables choisies{
+	if (flags & XCCDF_SESSION_LOAD_XCCDF) {
+		if ((ret = xccdf_session_load_xccdf(session)) != 0)
+			return ret;
+	}
+	if (flags & XCCDF_SESSION_LOAD_CPE) {
+		if ((ret = xccdf_session_load_cpe(session)) != 0) {
+			return ret;
+		}
+	}
+}
+-Si flags & XCCDF_SESSION_LOAD_XCCDF!=0 alors xccdf flag est activé donc on le charge puis on le charge en utilisant xccdf_session_load_xccdf et on retourne la valeur dans ret et si ret!=0 cela veut dire une erreur est survenue donc on retourne l'erreur qui est=1(en C un retour de 0 veut dire succes et un retour en une chose differente de 0 veut dire echec,generalement on utilise 1)
+-Dans l'environnement de openscap,engine_plugins est que openscap offre la possibilité à d'autres moteurs d'évaluations(autres que OVAL) a s'intégrer dans openscap,se sont des moteurs de tests qui peuvent s'intégrer dans l'environnement pour implémenter des tests que OVAL ne peut pas executer ou que le contenu fourni qu'on va baser nos tests sur est ecrit pour etre implémenté par d'autres moteurs qu'OVAL,l'un de ces moteurs est SCE(Script Check Engine),c'est un moteur de tests,qui se base sur des scripts écrits en python et d'autres langages,qui est utilisé dans ComplianceAsCode/content(SSG) le projet qu me fournit le contenu,mais j'ai entendu parler que les tests sont maintenant generalement faits en OVAL donc si SCE n'est plus utiliséle désactiver entierement est recommendé
+-Normalement je n'ai pas besoin de engine_plugins,donc je dois vérifier si SCE est encore utilisé ou non,si ce n'est pas le cas je vais désactiver son flag
+
+-En C, chaque fichier .c est compilé séparément puis assemblé par un linker, et le mot-clé static appliqué à une fonction au niveau du fichier signifie que son symbole reste local à ce fichier objet et n'est jamais exporté — donc physiquement invisible et impossible à appeler depuis l'extérieur, même en connaissant son nom exact ; à l'inverse, une fonction sans static est exportée et devient appelable depuis d'autres fichiers, à condition que sa signature soit déclarée dans un header. C'est exactement ce qui distingue les headers publics (comme public/xccdf_session.h, que ton propre code inclurait) des fichiers .c d'implémentation : seules les fonctions non-static, systématiquement déclarées dans le header public, constituent l'API que tu es censé utiliser — ce sont les orchestrateurs qui gèrent l'ordre correct des opérations et les préconditions nécessaires. Les fonctions static (souvent préfixées d'un underscore _ par pure convention stylistique, sans aucun effet technique, juste pour signaler visuellement "détail interne, ne pas s'y attacher") sont des briques internes appelées uniquement en interne par ces orchestrateurs, et supposent généralement un état déjà préparé par le code environnant — les appeler isolément produirait un comportement indéfini. Techniquement, il serait possible de retirer le static, d'ajouter la déclaration dans un header, puis de recompiler toute la bibliothèque pour rendre une telle fonction appelable, mais ce serait créer un fork personnel du projet : une version modifiée que plus personne ne peut reconstruire facilement, incompatible avec les futures mises à jour officielles (notamment de sécurité), et donc une pratique à éviter presque systématiquement — si un besoin réel dépasse ce que l'API publique couvre, la bonne démarche est de chercher une autre fonction publique équivalente ailleurs dans le projet, ou de proposer une contribution upstream, plutôt que de modifier et maintenir soi-même une bibliothèque tierce aussi centrale à un projet de sécurité.
+
+-xccdf_session_new va appeler oscap_source_new_from_file qui crée un pointeur vers un objet oscap_source et remplit les champs source->origin.filepath/surce->origin.type
+-Pour l'objet oscap_source il nous manque les champs source->scap_type/source->origin.version/source->origin.memory/source->origin.memory_size et source->xml.doc
+
+-Puis xccdf_session_new appelle xccdf_session_new_from_source avec l'objet oscap_source.
+
+-Dans la fonction xccdf_session_load nous allons charger tous les flags sélectionnés,elle va appeler toutes les fonctions de load(xccdf_session_load_xccdf,xccdf_session_load_oval etc...),nous allons creer un item de type benchmark et depuis ce dernier nous allons creer la policy_model
+
+
+-Maintenant je passe à l'analyse de xccdf_session_load_xccdf
+-La fonction xccdf_session_load_xccdf permet de charger le contenu xccdf dans la sous-struct session->xccdf,on a deux cas,soit le fichier passé est un document DataStream,soit un document xccdf,s'il est un fichier xccdf alors session->xccdf.source=session->source(en autres mots le fichier qu'on va parser est simplemet le fichier xccdf)
+-Si c'est un fichier datastream alors on valide d'abord le contenu s'il suit bien le schéma XSD ou non,puis on vérifie la signature XML du datastream(certificat de confiance,les oranisations publient leurs Data Streams avec une signature XML),apres on sélectionne le contenu du benchmark(checklist) car un SDS(Source Data Stream) peut contenir plusieurs data streams chacun avec plusieurs checklists(composants XCCDF) donc la fonction ds_sds_session_select_checklist extrait le bon composant XCCDF, en fonction de trois critères optionnels que tu as configurés:user_datastream_id(via xccdf_session_set_datastream_id),user_component_id(via xccdf_session_set_component_id),user_benchmark_id(via xccdf_session_set_benchmark_id) et si je ne configure aucune option elle va prendre le premier,elle gere aussi le cas si c'est un fichier de tailoring et enfin on vérifie si on bien obtenu un fichier XCCDF et on appelle la fonction _xccdf_session_load_xccdf_benchmark qui fait le suivant:
+1)Nettoyage préalable : si policy_model existait déjà (rechargement), on le libère d'abord — cohérent avec le comportement "rechargeable" qu'on avait identifié dans xccdf_session_load.
+2)Double validation possible : remarque !xccdf_session_is_sds(session) || session->full_validation — si c'est un SDS, la validation XSD du composant XCCDF isolé n'est refaite que si full_validation est activé (le SDS entier a déjà été validé à l'étape 1 plus haut) ; si ce n'est PAS un SDS, la validation a lieu ici quoi qu'il arrive (puisque le cas B n'avait fait aucune validation avant).
+3)La transformation clé : xccdf_benchmark_import_source(session->xccdf.source) — c'est exactement le moment où le XML devient l'xccdf_item (type=BENCHMARK) qu'on a étudié en détail. Puis xccdf_policy_model_new(benchmark) enveloppe ce benchmark dans le policy_model (contexte global d'évaluation).
+
+
+-Openscap applique la philosophie d'necapsuler tout le travail dans la struct appelée xccdf_session
+-on appelle xccdf_session_new pour initialiser une session,cette derniere a besoin d'un fichier source.
+-Tout fichier est modélisé dans l'environnement openscap par la struct oscap_source,donc xccdf_session_new appelle le constructeur oscap_source_new_from_file,qui prend le chemin vers le fichier source et crée un pointeur vers la struct oscap_source.
+-struct oscap_source {
+	oscap_document_type_t scap_type;                ///< Type of SCAP document (XCCDF, OVAL, ...)
+	struct {
+		oscap_source_type_t type;               ///< Internal type of the oscap_source
+		char *version;                          ///< Version of the particular document type
+		char *filepath;                         ///< Filepath (if originated from file)
+		char *memory;                           ///< Memory buffer (if originated from memory)
+		size_t memory_size;                     ///< Size of the memory buffer (if originated from memory)
+	} origin;                                       ///
+	struct {
+		xmlDoc *doc;                            /// DOM
+	} xml;
+};
+-Apres l'appel de oscap_source_new_from_file(const char *filepath),les champs source->origin.filepath et source->origin.type sont remplis et on retorune le pointeur source
+struct xccdf_session {
+	const char *filename;				///< File name of SCAP (SDS or XCCDF) file for this session.
+	struct oscap_list *rules;
+	struct oscap_list *skip_rules;
+	const char *reference_parameter;
+	struct oscap_source *source;                    ///< Main source assigned with the main file (SDS or XCCDF)
+	char *temp_dir;					///< Temp directory used for decomposed component files.
+	struct {
+		struct oscap_source *source;            ///< oscap_source representing the XCCDF file
+		struct xccdf_policy_model *policy_model;///< Active policy model.
+		char *profile_id;			///< Last selected profile.
+		struct xccdf_result *result;		///< XCCDF Result model.
+		float base_score;			///< Basec score of the latest evaluation.
+		struct oscap_source *result_source;     ///< oscap_source for the exported XCCDF result
+	} xccdf;
+	struct {
+		struct ds_sds_session *session;         ///< SDS Registry abstract structure
+		char *user_datastream_id;		///< Datastream id requested by user (only applicable for sds).
+		char *user_component_id;		///< Component id requested by user (only applicable for sds).
+		char *user_benchmark_id;		///< Benchmark id requested by user (only applicable for sds).
+	} ds;
+	struct {
+		bool fetch_remote_resources;		///< Allows download of remote resources (not applicable when user sets custom oval files)
+		const char *local_files; ///< Path to the directory where local copies of remote components are located
+		download_progress_calllback_t progress;	///< Callback to report progress of download.
+		struct oval_content_resource **custom_resources;///< OVAL files required by user
+		struct oval_content_resource **resources;///< OVAL files referenced from XCCDF
+		struct oval_agent_session **agents;	///< OVAL Agent Session
+		xccdf_policy_engine_eval_fn user_eval_fn;///< Custom OVAL engine callback
+		char *product_cpe;			///< CPE of scanner product.
+		struct oscap_source* arf_report;	///< ARF report
+		struct oscap_htable *result_sources;    ///< mapping 'filepath' to oscap_source for OVAL results
+		struct oscap_htable *results_mapping;    ///< mapping OVAL filename to filepath for OVAL results
+		struct oscap_htable *arf_report_mapping;    ///< mapping OVAL filename to ARF report ID for OVAL results
+	} oval;
+	struct {
+		char *arf_file;				///< Path to ARF file to export
+		char *xccdf_file;			///< Path to XCCDF file to export
+		char *xccdf_stig_viewer_file;		///< Path to STIG Viewer XCCDF file to export
+		char *report_file;			///< Path to HTML file to export
+		bool oval_results;			///< Shall be the OVAL results files exported?
+		bool oval_variables;			///< Shall be the OVAL variable files exported?
+		bool check_engine_plugins_results;	///< Shall the check engine plugins results be exported?
+		bool without_sys_chars;			///< Shall system characteristics be exported?
+		bool thin_results;			///< Shall OVAL/ARF results be exported as THIN? Default is FULL
+	} export;					///< Settings of Session export
+	char *user_cpe;					///< Path to CPE dictionary required by user
+	struct {
+		struct oscap_source *user_file; ///< Tailoring file requested by the user
+		char *user_component_id;    ///< Component ID of the Tailoring requested by the user
+	} tailoring;
+	bool validate;					///< False value indicates to skip any XSD validation.
+	bool full_validation;				///< True value indicates that every possible step will be validated by XSD.
+	bool validate_signature;		///< False value indicates to skip XML signature validation.
+	bool enforce_signature; 		///< True value forces session to treat all XMLs without signature as invalid.
+	bool show_rule_details;		///< True value indicates that rule details will be shown.
+	struct oscap_signature_ctx *signature_ctx; ///< Paths to public keys, certificates, signature related info
+
+	struct oscap_list *check_engine_plugins; ///< Extra non-OVAL check engines that may or may not have been loaded
+	xccdf_session_loading_flags_t loading_flags; ///< Load referenced files while loading XCCDF
+};
+-Puis la fonction xccdf_session_new prend la source et appelle xccdf_session_new_from_source(source).
+-La fonction xccdf_session_new_from_source,remlit le champ filename de struct xccdf_session par la fonction oscap_source_get_filepath et remplit session->source par source,puis appelle la fonction oscap_source_get_scap_type pour déterminer le type du fichier(xccdf,DS,oval,...)
+-oscap_source_get_scap_type est une fonction qui prend en parametres la source et retourne le type oscap_document_type_t
+-typedef enum oscap_document_type {
+	OSCAP_DOCUMENT_UNKNOWN = 0,           ///< The type is unknown
+	OSCAP_DOCUMENT_OVAL_DEFINITIONS,      ///< OVAL Definitions file
+	OSCAP_DOCUMENT_OVAL_VARIABLES,        ///< OVAL Variables
+	OSCAP_DOCUMENT_OVAL_SYSCHAR,          ///< OVAL system characteristics file
+	OSCAP_DOCUMENT_OVAL_RESULTS,          ///< OVAL results file
+	OSCAP_DOCUMENT_OVAL_DIRECTIVES,       ///< OVAL directives file
+	OSCAP_DOCUMENT_XCCDF,                 ///< XCCDF benchmark file
+	OSCAP_DOCUMENT_CPE_LANGUAGE,          ///< CPE language file
+	OSCAP_DOCUMENT_CPE_DICTIONARY,        ///< CPE dictionary file
+	OSCAP_DOCUMENT_SCE_RESULT,            ///< SCE result file
+	OSCAP_DOCUMENT_SDS,                   ///< Source Data Stream file
+	OSCAP_DOCUMENT_ARF,                   ///< Result Data Stream file
+	OSCAP_DOCUMENT_XCCDF_TAILORING,       ///< XCCDF tailoring file
+	OSCAP_DOCUMENT_OCIL,                   ///< OCIL Definitions file
+	// If you are adding a new enum here, make sure you add support for it
+	// to utils/oscap-info.c!
+} oscap_document_type_t;
+-oscap_source_get_scap_type vérifie si source->scap_type==OSCAP_DOCUMENT_UNKNOWN,donc si on connait deja le type ou non,si oui on le retourne immédiatement sinon on le cherche,cette méthode va donner faux la première fois car source est crée avec calloc,void *calloc(size_t nombre_elements, size_t taille_element),calloc alloue dynamiquement size_element*nb_element de memoire et initialise le tout a 0 et puisque oscap_document_unknown=0 alors on ne connait pas le type.
+-oscap_source_get_scap_type appelle ensuite xmlTextReader *oscap_source_get_xmlTextReader(struct oscap_source *source) qui prend en parametres la source et retourne xmlTextReader par-dessus ce DOM, via xmlReaderWalker(doc) — un curseur de lecture séquentiel, pratique pour n'examiner que le début du document.
+
+-struct xccdf_session:Cette structure représente une session d'évaluation XCCDF/SDS complète, c'est-à-dire tout le contexte nécessaire pour charger, valider, évaluer et exporter les résultats d'un audit SCAP. Le champ filename garde le nom du fichier SCAP principal (SDS ou XCCDF). rules et skip_rules sont des listes de règles à sélectionner ou à exclure explicitement lors de l'évaluation. reference_parameter sert à indiquer un identifiant de référence externe (utilisé par exemple pour lier la session à une politique). source pointe vers l'oscap_source du fichier principal (le SDS ou le XCCDF brut, avant décomposition). temp_dir est le répertoire temporaire où sont extraits les composants d'un datastream (fichiers OVAL, CPE, etc.). La sous-structure xccdf regroupe tout ce qui concerne le document XCCDF proprement dit : son source, le policy_model (modèle de politique actif, structure en mémoire qui pilote l'évaluation), le profile_id sélectionné, le result (modèle de résultat XCCDF généré après évaluation), le base_score calculé, et le result_source (source exportable du résultat). La sous-structure ds concerne les datastreams (SDS) : la session ds_sds_session qui gère l'accès aux composants du datastream, et les identifiants (user_datastream_id, user_component_id, user_benchmark_id) que l'utilisateur peut fixer manuellement pour choisir un composant précis dans le SDS. La sous-structure oval gère tout ce qui touche aux évaluations OVAL : autoriser le téléchargement de ressources distantes (fetch_remote_resources), un chemin local pour les copies de composants distants (local_files), un callback de progression, les tableaux de ressources OVAL personnalisées ou référencées, les sessions d'agent OVAL actives (agents), un callback d'évaluation personnalisé, le CPE du produit scanner, le rapport ARF généré, et des tables de hachage faisant correspondre noms de fichiers OVAL à leurs sources ou à leur position dans l'ARF. La sous-structure export contrôle les options de sortie : chemins de fichiers à exporter (ARF, XCCDF, XCCDF pour STIG Viewer, rapport HTML) et des booléens qui déterminent quoi inclure (résultats OVAL, variables OVAL, résultats de plugins, sans system-characteristics, résultats "thin" au lieu de "full"). user_cpe est le chemin vers un dictionnaire CPE fourni par l'utilisateur. La sous-structure tailoring référence un fichier de personnalisation (tailoring) fourni par l'utilisateur et l'ID du composant tailoring choisi. Enfin, plusieurs booléens contrôlent la validation (validate, full_validation, validate_signature, enforce_signature), show_rule_details contrôle l'affichage des détails de règles, signature_ctx contient le contexte de vérification de signature XML, check_engine_plugins est la liste des moteurs de vérification externes (non-OVAL) chargés, et loading_flags indique quels fichiers référencés doivent être chargés automatiquement.
+
+-struct oscap_source:Cette structure est une abstraction générique représentant n'importe quel document SCAP (XCCDF, OVAL, CPE, SDS, ARF, etc.), quelle que soit son origine (fichier disque, mémoire, ou DOM XML déjà construit). scap_type mémorise le type de document une fois déterminé (pour éviter de le redétecter à chaque appel). La sous-structure origin décrit d'où vient le contenu : type indique si la source vient d'un fichier utilisateur, d'un buffer mémoire utilisateur, ou d'un DOM XML déjà en mémoire ; version mémorise la version du schéma du document une fois détectée ; filepath est le chemin du fichier (ou un nom "hint" du type NONEXISTENT si la source ne vient pas d'un fichier réel) ; memory et memory_size contiennent le buffer brut et sa taille si la source vient de mémoire. La sous-structure xml contient simplement le pointeur doc vers le DOM libxml2 (xmlDoc), qui est construit paresseusement (lazy) à partir du fichier ou du buffer la première fois qu'on en a besoin.
+
+
+
+
+
+
+-Yesser chouf kol fonction chniya t3abi bedhabt fi les champs
+-Yesser check_engine_plugins testa3mel fi oscap_new_list zeda,chouf kifech tnajem desactiveha ken testa3malhech bich terba7 mémoire
+-Yesser zid thabet ken SCE walla moteurs o5rin mezelou mosta3mlin walla le bich ta3ref t5alli flag el engine_plugins walla le
 -Yesser tdhaker bich tchouf 7keyet validation mta3 les fichiers walla sources ma3moula automatiquement walla ngereha ena w zeda chouf 7keyet gestion des erreurs
 -Yesser zid chouf 7keyet el lazy loading,sa3at ki utilisateur y7eb ychouf rules kahaw mouch lezem ta3mel load lel oval,tdhaker flags ta3 xccdf_load_all w kol
 -Yesser zid a9ra 3al résolution mta3 policies,na3rafech niveau d'abstraction ta3 el API fel 7keya hethi,ama 9rit men 3and el claude ennou ya3mel résolution lel les profils el kol walla ena na5tar enehou walla enehom donc millowel a3mel prototype 3la kol chay mba3ed zid od5el fel details bich tet2aked
+
 
 
 
