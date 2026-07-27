@@ -954,6 +954,23 @@ Libère les agents OVAL précédents, puis localise tous les fichiers OVAL réf�
 Détermine la source de tailoring à appliquer : soit session->tailoring.user_file (fourni directement), soit résolue depuis un component-id SDS (ds_sds_session_select_tailoring). Valide si demandé, puis parse via xccdf_tailoring_import_source(tailoring_source, benchmark) et applique le résultat au policy_model via xccdf_policy_model_set_tailoring — qui vide le cache de policies existants (car la résolution des profils change) et appelle xccdf_tailoring_resolve pour fusionner les profils du tailoring avec ceux du Benchmark.
 
 
+--------------------------------------------------------------------------------------------27/07/2026-------------------------------------------------------------------------------
+
+-Il s'est avéré qu'il existe un fossier appelé utils/ qui contient le code de toutes les applications qui utilisent libopenscap
+-xccdf_session n'est pas simplement un wrapper,c'est une structure qui englobe tout le travail et facilite la coordination entre les différents éléments de la session
+-j'ai vu dans le dossier utils le code de l'outil oscap,il s'est avéré que pour certains cas il n'utilise pas la couche xccdf_session mais descend un peu en bas,par exemple au lieu d'évaluer en utilisant xccdf_session,il utilise xccdf_policy.
+-Le choix ici dépend du controle qu'on veut avoir
+-J'ai essayé d'enregistrer un callback(fonction qui appelle une autre fonction apres avoir réalisé quelque chose) pour retourner les résultats des regles
+-J'ai utilisé la fonction xccdf_session_set_custom_oval_eval_fn(session, my_custom_eval); mais cela a echouee il s'est avere que cette fonction remplace le moteur oval au lieu d enregistrer un callback
+-J'ai passé une heure a diagnostiquer l'erreur et il s'est avéré que la fonction xccdf_session_set_custom_oval_eval_fn(session, my_custom_eval) n'est pas un simple callback qui travaille comme un simple retour apres l'évaluation mais qu'il remplace entierement le moteur oval
+-Un Callback est toute fonction qu'on ecrit et qu'on passe a une autre pour que cette derniere l'appelle,l'idee vient du controle dans l'autre sens,car en general la fonction A appelle B mais avec les callbacks B peut aussi appeler A
+
+-J'ai deux chemins pour faire l'évaluation,soit appeler xccdf_session_evaluate(session) qui prend la session en parametres et fait l'evaluation,en internet elle utilise un profil pour creer la policy et enfin evaluer la polciy,soit descendre en plus bas niveau et instancier moi-meme la policy.
+-La premiere approche cache la complexité mais n'est pas tres flexible alors que la deuxieme est plus complexe mais m'offre plus de controle et c'est meme le bon chemin pour les callbacks et tout
+-J'ai crée un prototype d'un programme qui prend le data stream comme parametre et puis liste l'ensmeble des profils disponibles pour ce DS et donne le choix a l'utilisateur pour choisir quel profil evaluer avec,on a bien utiliser l'evaluation de la systeme et pas la methode de policy la plus compliquée.
+-Apres mes tests tout fonctionne tres bien
+-Maintenant je passe a utiliser la méthode d'évaluation par création de policy et implémenter les callbacks
+
 
 
 
