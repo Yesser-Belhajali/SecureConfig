@@ -48,7 +48,7 @@ int main(int argc, char** argv){
         return 1;
     }
 
-    char** profile_list=NULL;
+    struct xccdf_profile **profile_list=NULL;
     int count=0;
 
     while(xccdf_profile_iterator_has_more(profile_iterator)){
@@ -59,22 +59,23 @@ int main(int argc, char** argv){
             xccdf_session_free(session);
             return 1;
         }
-        char **tmp=realloc(profile_list, (count+1)* sizeof(char*));
+        struct xccdf_profile **tmp=realloc(profile_list, (count+1)* sizeof(struct xccdf_profile *));
+
         if(tmp==NULL){
             printf("Erreur allocation mémoire\n");
             xccdf_profile_iterator_free(profile_iterator);
             xccdf_session_free(session);
             return 1;
         }
+
         profile_list=tmp;
-        profile_list[count]=malloc(MAX_LEN);
+
+        profile_list[count]=profile;
         if(profile_list[count]==NULL){
             printf("Erreur allocation mémoire\n");
             return 1;
         }
-        strncpy(profile_list[count],xccdf_profile_get_id(profile),MAX_LEN-1);
-        profile_list[count][MAX_LEN-1] = '\0';
-        printf("%d)%s\n",count+1,profile_list[count]);
+        printf("%d)%s\n",count+1,xccdf_profile_get_id(profile_list[count]));
         count++;
     }
 
@@ -91,9 +92,28 @@ int main(int argc, char** argv){
 
     choice--;
 
-    printf("Vous avez choisi : %s\n",profile_list[choice]);
+    printf("Vous avez choisi : %s\n",xccdf_profile_get_id(profile_list[choice]));
 
-    if (!xccdf_session_set_profile_id(session, profile_list[choice])) {
+    xccdf_policy_model_set_show_rule_details(policy_model,true);
+
+    struct xccdf_policy *policy=xccdf_policy_model_get_policy_by_id(policy_model,xccdf_profile_get_id(profile_list[choice]));
+
+    printf("%s\n",xccdf_policy_get_show_rule_details(policy) ? "true" : "false");
+
+    struct xccdf_policy_iterator *policy_iterator =xccdf_policy_model_get_policies(policy_model);
+
+    while (xccdf_policy_iterator_has_more(policy_iterator)) {
+        struct xccdf_policy *policy =xccdf_policy_iterator_next(policy_iterator);
+        if (policy == NULL) {
+            printf("Erreur récupération policy\n");
+            break;
+        }
+        printf("Policy trouvée\n");
+    }
+
+
+
+    /*if (!xccdf_session_set_profile_id(session, profile_list[choice])) {
         printf("Profil introuvable: %s\n", profile_list[choice]);
         xccdf_session_free(session);
         return 1;
@@ -105,7 +125,7 @@ int main(int argc, char** argv){
         xccdf_session_free(session);
         return 1;
     }
-    printf("Evaluation terminée avec succes!!!!!!YYAAAAYYY\n");
+    printf("Evaluation terminée avec succes!!!!!!YYAAAAYYY\n");*/
     xccdf_session_free(session);
     return 0;
 }

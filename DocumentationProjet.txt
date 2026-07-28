@@ -972,6 +972,15 @@ Détermine la source de tailoring à appliquer : soit session->tailoring.user_fi
 -Maintenant je passe a utiliser la méthode d'évaluation par création de policy et implémenter les callbacks
 
 
+--------------------------------------------------------------------------------------------28/07/2026-------------------------------------------------------------------------------
+
+-Il existe une variable dans xccdf_policy_model et xccdf_policy appelée show_rule_details(bool),j'avais une confusion qur quelle valeur va gagner en fin de compte et il s'est avéré qu'il existe une fonction de get_show_rule_details pour policy et une fonction pour le set_show_rule_details pour le policy_model et dans la création de la session,show_rule_details de policy prend la meme valeur de show_rule_details de policy_model.
+-Afin de créer mes callbacks je dois les ajouter a la policy_model car le callback est la proprieté de la policy_model pas la policy
+-On peut créer une policy est elle restera indépendante de policy_model
+-Policy_model contient une liste de policies,mais cette liste ne sera pas remplie a chaque fois qu'on crée une policy,nous devons soit initialiser la policy pour qu'elle soit ajoutée a la liste de policies de policy_model,soit créer la policy puis l'ajouter soit creer toutes les policies possibles de ce benchmark
+-J'ai réussi a creer une fonctionnalité qui liste les profils,et crée une policy d'auprés un profil,et j'ai meme vérifié la théorie de la liste de policy_model
+
+
 
 
 -Yesser chouf kol fonction chniya t3abi bedhabt fi les champs
