@@ -980,9 +980,22 @@ Détermine la source de tailoring à appliquer : soit session->tailoring.user_fi
 -Policy_model contient une liste de policies,mais cette liste ne sera pas remplie a chaque fois qu'on crée une policy,nous devons soit initialiser la policy pour qu'elle soit ajoutée a la liste de policies de policy_model,soit créer la policy puis l'ajouter soit creer toutes les policies possibles de ce benchmark
 -J'ai réussi a creer une fonctionnalité qui liste les profils,et crée une policy d'auprés un profil,et j'ai meme vérifié la théorie de la liste de policy_model
 
+-Apres une analyse profonde du repo,j'ai compris plusieurs choses sur l'abstraction,les couches et l'encapsulation.
+-La Science de l'informatique est une science qui se construit brique par brique ou chaque nouvelle notion est en dessus des autres.Il existe le phenomene des couches,ou chaque couche supérieure,encapsule la couche en dessous,cache sa complexité,facilite la communication avec elle et fournit une interface gerable pour l'utiliser,mais cela cree une paradoxe le plus haut qu'on ascend dans les couches le plus que le travail devient facile mais le moins controle qu'on aura
+-Si on descend dans les couches le taravil devient plus dure et complexe mais on gagne le controle absolu
+
+-Au début j'ai cru que j'ai deux chemins soit j'utilise session soit j'utilise une couche plus basse la policy
+-Mais il s'est avéré qu'en attribuant le profil a session->xccdf.profile en interne on cree la politique avec ce profil,on ajoute la politique a la liste de politiques de policy_model et enfin on pourra récupérer la politique de ce profil lui meme
+
+-L'approche de session_set_profile_id:On crée la session et on la charge,puis on utilise la fonction xccdf_session_set_profile_id(session,profile_id),cette fonction va appeler xccdf_policy_model_get_policy_by_id,cette derniere vérifie si une policy crée par ce profil existe deja dans la liste des policies de policy_model,sinon elle cree cette policy et l'ajoute a la liste des policies,et lorsque'on fait xccdf_session_evaluate on va récupérer la session correspondante depuis la liste des policies en utilisant l'id du profil,le seul probleme de cette approche et qu'apres je dois rechercher la policy moi meme
+-L'autre approche et just apres la création de policy_model je cree une policy,puis je l ajoute au policy_model puis je met le profil dans la session mais je garde le pointeur vers la policy
+
+-J'ai réussi a ajouter les callbacks.
+-J'ai ajouté deux callbacks a la policy_model,un avant l'evaluaion de chaque regle et un autre a la fin de l'evaluation,
 
 
 
+-Yesser zid verifi enehi approche 5ir:ya ema na3mel set_profile_id lel session w mba3ed ne5ou el politique ya ema na3mel el politique w najouteha
 -Yesser chouf kol fonction chniya t3abi bedhabt fi les champs
 -Yesser check_engine_plugins testa3mel fi oscap_new_list zeda,chouf kifech tnajem desactiveha ken testa3malhech bich terba7 mémoire
 -Yesser zid thabet ken SCE walla moteurs o5rin mezelou mosta3mlin walla le bich ta3ref t5alli flag el engine_plugins walla le

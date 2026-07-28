@@ -7,16 +7,12 @@
 
 #define MAX_LEN 100
 
-int mon_callback_start(struct xccdf_rule *rule, void *usr);
-int mon_callback_output(struct xccdf_rule_result *result, void *usr);
-
 
 int main(int argc, char** argv){
     if(argc!=2){
         printf("Vous avez fourni %d paramètres alors qu'on a besoin de seulement 1",argc-1);
         return 1;
     }
-    oscap_init();
 
     struct xccdf_session* session=xccdf_session_new(argv[1]);
 
@@ -100,43 +96,20 @@ int main(int argc, char** argv){
 
     xccdf_policy_model_set_show_rule_details(policy_model,true);
 
-    if(!xccdf_session_set_profile_id(session,xccdf_profile_get_id(profile_list[choice]))){
-        printf("Erreur dans l'initialisation du profil de la session");
-        xccdf_session_free(session);
-        return 1;
-    };
+    struct xccdf_policy *policy=xccdf_policy_model_get_policy_by_id(policy_model,xccdf_profile_get_id(profile_list[choice]));
 
-    xccdf_policy_model_register_start_callback(policy_model, mon_callback_start, NULL);
-    xccdf_policy_model_register_output_callback(policy_model, mon_callback_output, NULL);
+    printf("%s\n",xccdf_policy_get_show_rule_details(policy) ? "true" : "false");
 
-    if (xccdf_session_evaluate(session) != 0) {
-        printf("Échec de l'évaluation\n");
-        xccdf_session_free(session);
-        return 1;
+    struct xccdf_policy_iterator *policy_iterator =xccdf_policy_model_get_policies(policy_model);
+
+    while (xccdf_policy_iterator_has_more(policy_iterator)) {
+        struct xccdf_policy *policy =xccdf_policy_iterator_next(policy_iterator);
+        if (policy == NULL) {
+            printf("Erreur récupération policy\n");
+            break;
+        }
+        printf("Policy trouvée\n");
     }
-    printf("Evaluation terminée avec succes!!!!!!YYAAAAYYY\n");
-    free(profile_list);
     xccdf_session_free(session);
-    oscap_cleanup();
-    return 0;
-}
-
-
-
-// Appelé juste AVANT d'évaluer une règle
-int mon_callback_start(struct xccdf_rule *rule, void *usr) 
-{
-    const char *rule_id = xccdf_rule_get_id(rule);
-    printf("[START] Évaluation en cours de la règle : %s...\n", rule_id);
-    return 0; // 0 indique que tout va bien
-}
-
-// Appelé juste APRÈS l'évaluation d'une règle (contient le résultat)
-int mon_callback_output(struct xccdf_rule_result *result, void *usr) 
-{
-    const char *rule_id = xccdf_rule_result_get_idref(result);
-    xccdf_test_result_type_t res_type = xccdf_rule_result_get_result(result);
-    
-    printf("[OUTPUT] Règle %s terminée avec le statut #%d\n", rule_id, res_type);
     return 0;
 }
