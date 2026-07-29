@@ -1027,6 +1027,9 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 -Les tests vont tres bien,j'ai comparé le score de mon application avec celui de oscap et c'est le meme
 
 
+
+
+-Yesser a9ra 3la les erreurs
 -Yesser zid verifi enehi approche 5ir:ya ema na3mel set_profile_id lel session w mba3ed ne5ou el politique ya ema na3mel el politique w najouteha
 -Yesser chouf kol fonction chniya t3abi bedhabt fi les champs
 -Yesser check_engine_plugins testa3mel fi oscap_new_list zeda,chouf kifech tnajem desactiveha ken testa3malhech bich terba7 mémoire
