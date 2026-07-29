@@ -22,12 +22,14 @@ int main(int argc, char** argv){
 
     if(session==NULL){
         printf("Echec dans l'initialisation de la session");
+        oscap_cleanup();
         return 1;
     }
 
     if(xccdf_session_load(session)!=0){
         printf("Le chargement des composants a échoué!!!");
         xccdf_session_free(session);
+        oscap_cleanup();
         return 1;
     }
 
@@ -35,6 +37,7 @@ int main(int argc, char** argv){
     if(policy_model==NULL){
         printf("Echech dans la récupération de la policy_model!!!!");
         xccdf_session_free(session);
+        oscap_cleanup();
         return 1;
     }
 
@@ -42,6 +45,7 @@ int main(int argc, char** argv){
     if(benchmark==NULL){
         printf("Echec dans la récupération du benchmark!!!!");
         xccdf_session_free(session);
+        oscap_cleanup();
         return 1;
     }
 
@@ -49,6 +53,7 @@ int main(int argc, char** argv){
     if(profile_iterator==NULL){
         printf("Echec dans la récupération de l'itérateur!!!!");
         xccdf_session_free(session);
+        oscap_cleanup();
         return 1;
     }
 
@@ -61,6 +66,8 @@ int main(int argc, char** argv){
             printf("Erreur dans l'extraction du profil!!!!");
             xccdf_profile_iterator_free(profile_iterator);
             xccdf_session_free(session);
+            free(profile_list);
+            oscap_cleanup();
             return 1;
         }
         struct xccdf_profile **tmp=realloc(profile_list, (count+1)* sizeof(struct xccdf_profile *));
@@ -68,7 +75,10 @@ int main(int argc, char** argv){
         if(tmp==NULL){
             printf("Erreur allocation mémoire\n");
             xccdf_profile_iterator_free(profile_iterator);
+            free(profile_list);
+            free(tmp);
             xccdf_session_free(session);
+            oscap_cleanup();
             return 1;
         }
 
@@ -77,6 +87,11 @@ int main(int argc, char** argv){
         profile_list[count]=profile;
         if(profile_list[count]==NULL){
             printf("Erreur allocation mémoire\n");
+            xccdf_profile_iterator_free(profile_iterator);
+            free(profile_list);
+            free(tmp);
+            xccdf_session_free(session);
+            oscap_cleanup();
             return 1;
         }
         printf("%d)%s\n",count+1,xccdf_profile_get_id(profile_list[count]));
@@ -90,7 +105,9 @@ int main(int argc, char** argv){
     scanf("%d",&choice);
     if(choice<1 || choice>count){
         printf("Choix invalide\n");
+        free(profile_list);
         xccdf_session_free(session);
+        oscap_cleanup();
         return 1;
     }
 
@@ -100,9 +117,29 @@ int main(int argc, char** argv){
 
     xccdf_policy_model_set_show_rule_details(policy_model,true);
 
+    struct xccdf_policy *policy=xccdf_policy_new(policy_model,profile_list[choice]);
+    if(policy==NULL){
+        printf("Echec de la création de la policy!!!!");
+        free(profile_list);
+        xccdf_session_free(session);
+        oscap_cleanup();
+        return 1;
+    }
+
+    if(xccdf_policy_model_add_policy(policy_model,policy)==false){
+        printf("Echec lors de l'ajoit de la policy dans la liste des policies de policy_model!!!!");
+        free(profile_list);
+        xccdf_policy_free(policy);
+        xccdf_session_free(session);
+        oscap_cleanup();
+        return 1;
+    }
+
     if(!xccdf_session_set_profile_id(session,xccdf_profile_get_id(profile_list[choice]))){
         printf("Erreur dans l'initialisation du profil de la session");
+        free(profile_list);
         xccdf_session_free(session);
+        oscap_cleanup();
         return 1;
     };
 
@@ -111,32 +148,31 @@ int main(int argc, char** argv){
 
     if (xccdf_session_evaluate(session) != 0) {
         printf("Échec de l'évaluation\n");
+        free(profile_list);
         xccdf_session_free(session);
+        oscap_cleanup();
         return 1;
     }
     printf("Evaluation terminée avec succes!!!!!!YYAAAAYYY\n");
+
+    printf("Votre score de conformité est = %f%%\n",xccdf_session_get_base_score(session));
+
+
     free(profile_list);
     xccdf_session_free(session);
     oscap_cleanup();
     return 0;
 }
 
-
-
-// Appelé juste AVANT d'évaluer une règle
-int mon_callback_start(struct xccdf_rule *rule, void *usr) 
-{
+int mon_callback_start(struct xccdf_rule *rule, void *usr) {
     const char *rule_id = xccdf_rule_get_id(rule);
     printf("[START] Évaluation en cours de la règle : %s...\n", rule_id);
-    return 0; // 0 indique que tout va bien
+    return 0;
 }
 
-// Appelé juste APRÈS l'évaluation d'une règle (contient le résultat)
-int mon_callback_output(struct xccdf_rule_result *result, void *usr) 
-{
+int mon_callback_output(struct xccdf_rule_result *result, void *usr) {
     const char *rule_id = xccdf_rule_result_get_idref(result);
     xccdf_test_result_type_t res_type = xccdf_rule_result_get_result(result);
-    
     printf("[OUTPUT] Règle %s terminée avec le statut #%d\n", rule_id, res_type);
     return 0;
 }

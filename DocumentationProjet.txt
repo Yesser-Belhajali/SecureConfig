@@ -991,8 +991,40 @@ Détermine la source de tailoring à appliquer : soit session->tailoring.user_fi
 -L'autre approche et just apres la création de policy_model je cree une policy,puis je l ajoute au policy_model puis je met le profil dans la session mais je garde le pointeur vers la policy
 
 -J'ai réussi a ajouter les callbacks.
--J'ai ajouté deux callbacks a la policy_model,un avant l'evaluaion de chaque regle et un autre a la fin de l'evaluation,
+-J'ai ajouté deux callbacks a la policy_model,un avant l'evaluaion de chaque regle et un autre a la fin de l'evaluation.
 
+
+--------------------------------------------------------------------------------------------29/07/2026-------------------------------------------------------------------------------
+
+-J'ai décidé de continuer avec l'approche de initialiser la sesstion,récupérer le policy_model,le benchmark et la liste des profils puis creer une policy en utilisant l'un des profils et l'ajouter a la liste de policy_model et enfin la choisir comme policy de session,comme ca j'aurai acces a la policy avant l'initialisation sur la session pour plus de controle et cela évite la complexité des recherches supplémentaires depuis l'id et tout car je passe immédiatement le profil.
+-Maintenant je vais analyser mieux les callbacks pour les améliorer avant de passer au frontend.
+-En C il existe un pointeur vers des fonctions,ca syntaxe ou la facon de le définir est la suivante:
+-typedef type_de_retour(*nom_du_pointeur_vers_la_fonction)(type_parametre_1 nom_parametre_1,type_parametre_2 nom_parametre_2,....,type_parametre_n nom_parametre_n)
+-Pour l'utiliser dans une fonction on utilise la syntaxe suivante:
+-type_de_retour_fonction_appelante nom_fonction_appelante(nom_du_pointeur_vers_la_signature):comme ca on dit que la fonction appelante prend en parametres un pointeur vers une fonction qui suit la signature suivante: typedef type_de_retour(*nom_du_pointeur_vers_la_fonction)(type_parametre_1 nom_parametre_1,type_parametre_2 nom_parametre_2,....,type_parametre_n nom_parametre_n)
+-La question qui se pose pourquoi utiliser cette méthode au lieu de définir une fonction et de l'utiliser dans la fonction appelante,c'est parce que celui qui a développé la fonction appelante ne sait pas le comportement que tu veux implémenter dans la fonction appelée donc il crée la fonction appelante et rédige un contrat(la signature de la fonction appelée) que tu dois suivre dans la création de ta fonction,cela veut dire que la fonction appelante accepte toute fonction dévelopée par moi si et seulement si elle suit ce contrat
+-Si je veux deux fonctions alors je fais comme ca:
+void fonction_appelante(ma_fonction f1, ma_fonction f2) {
+    f1(1, 2);   // utilise la première
+    f2(3, 4);   // utilise la deuxième
+}
+-Par exemple dans le callbacks ils ont fait comme ca:
+typedef int (*policy_reporter_start)(struct xccdf_rule *, void *);
+
+/**
+ * Function to register start callback for checking system that will be called BEFORE each rule evaluation.
+ * @param model XCCDF Policy Model
+ * @param func Callback - pointer to function called by XCCDF Policy system when rule parsed
+ * @param usr optional parameter for passing user data to callback
+ * @memberof xccdf_policy_model
+ * @return true if callback registered succesfully, false otherwise
+ */
+OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_model * model, policy_reporter_start func, void * usr);
+
+-Ils ont crée une fonction qui enregistre un callback,mais ils ne peuvent pas savoir le comportement que mon callback va implémenter donc ils ont crée la fonction qui enregistre le callback avec un type policy_reporter_start(qui est le type de pointeur vers toute fonction qui suit cette signature:typedef int (*policy_reporter_start)(struct xccdf_rule *, void *);)
+-Comme ca je peux créer ma propre fonction en respectant la signature et l'injecter dans le moteur.
+
+-Les tests vont tres bien,j'ai comparé le score de mon application avec celui de oscap et c'est le meme
 
 
 -Yesser zid verifi enehi approche 5ir:ya ema na3mel set_profile_id lel session w mba3ed ne5ou el politique ya ema na3mel el politique w najouteha
