@@ -157,6 +157,14 @@ int main(int argc, char** argv){
 
     printf("Votre score de conformité est = %f%%\n",xccdf_session_get_base_score(session));
 
+    if(xccdf_session_remediate(session)!=0){
+        printf("Echec lors de la remédiation!!!!");
+        free(profile_list);
+        xccdf_session_free(session);
+        oscap_cleanup();
+        return 1;
+    }
+
 
     free(profile_list);
     xccdf_session_free(session);
