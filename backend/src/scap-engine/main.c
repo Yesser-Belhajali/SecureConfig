@@ -127,7 +127,7 @@ int main(int argc, char** argv){
     }
 
     if(xccdf_policy_model_add_policy(policy_model,policy)==false){
-        printf("Echec lors de l'ajoit de la policy dans la liste des policies de policy_model!!!!");
+        printf("Echec lors de l'ajout de la policy dans la liste des policies de policy_model!!!!");
         free(profile_list);
         xccdf_policy_free(policy);
         xccdf_session_free(session);
@@ -145,7 +145,8 @@ int main(int argc, char** argv){
 
     xccdf_policy_model_register_start_callback(policy_model, mon_callback_start, NULL);
     xccdf_policy_model_register_output_callback(policy_model, mon_callback_output, NULL);
-
+    
+    
     if (xccdf_session_evaluate(session) != 0) {
         printf("Échec de l'évaluation\n");
         free(profile_list);
@@ -153,17 +154,9 @@ int main(int argc, char** argv){
         oscap_cleanup();
         return 1;
     }
+    
     printf("Evaluation terminée avec succes!!!!!!YYAAAAYYY\n");
 
-    printf("Votre score de conformité est = %f%%\n",xccdf_session_get_base_score(session));
-
-    if(xccdf_session_remediate(session)!=0){
-        printf("Echec lors de la remédiation!!!!");
-        free(profile_list);
-        xccdf_session_free(session);
-        oscap_cleanup();
-        return 1;
-    }
 
 
     free(profile_list);

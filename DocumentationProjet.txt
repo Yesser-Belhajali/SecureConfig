@@ -1026,9 +1026,30 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -Les tests vont tres bien,j'ai comparé le score de mon application avec celui de oscap et c'est le meme
 
+-Probléme dans la remédiation,un fichier qui s'appelle AIDE nécessite l'analyse de tout le systeme ce qui va prendre presque une heure,je dois regler cela ultérieurement,sinon je vais perdre la fonctionnalité de remédiation
+
+--------------------------------------------------------------------------------------------30/07/2026-------------------------------------------------------------------------------
+
+-J'ai commencé la journée par l'essai de corriger ou remédier l'erreur dans la remédiation,trouver une solution pour AIDE,alors j'ai décidé de désinstaller mes deux VMs ainsi que VirtualBox pour alléger le travail de AIDE
+-AIDE(Advanced Intrusion Dectection Environment):Outil d'analyse d'intégrité des fichiers,il sert a vérifier si des fichiers ou répertoires systeme ont été modifiés sans autorisation.
+-Il fonctionne en créant une Base de Donnée,apres il calcule la signature cryptographique(SHA-256,SHA-512,etc) de tous les fichiers et le stocke dans la BD,c'est comme prendre une snapshot du systeme,puis il se sert pour comparer l'etat du systeme a ce baseline
+-AIDE a pris beaucoup de temps a analyser tous les fichiers,alors j'ai désinstallé mes deux VMs ainsi que VirtualBox
+-Le probleme qui se leve maintenant est ou tester la remédiation,alors je l'ai testé sur ma machine principale(ubuntu24) ce qui a désactivé la WIFI sur mon PC mais je l'ai résolu
+
+-Avant de passer au frontend,je dois étudier les callbacks pour gérer l'output des règles sur mon système.
+
+-Il s'est avéré que l'ensemble des fonctions données par l'IA sur le fichier xccdf_session.h était manquant plusieurs autres alors je vais recommencer l'analyse
+
+-J'ai créé les deux dossiers frontend et backend dans ma repo et je vais commencer par le frontend maintenant,toute autre amélioration du backend doit attendre un peu car j'ai besoin d'un résultat concret maintenant.
 
 
 
+
+
+
+
+
+-Yesser session ta3mel fi barcha 7ajet zeyda,pour le moment o93od bel API mte3ha ama ki tetmaken akther mel projet ahbet rigel el oval wel xccdf wa7dek
 -Yesser a9ra 3la les erreurs
 -Yesser zid verifi enehi approche 5ir:ya ema na3mel set_profile_id lel session w mba3ed ne5ou el politique ya ema na3mel el politique w najouteha
 -Yesser chouf kol fonction chniya t3abi bedhabt fi les champs
