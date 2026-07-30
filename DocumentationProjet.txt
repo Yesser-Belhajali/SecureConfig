@@ -1040,7 +1040,6 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -Il s'est avéré que l'ensemble des fonctions données par l'IA sur le fichier xccdf_session.h était manquant plusieurs autres alors je vais recommencer l'analyse
 
--J'ai créé les deux dossiers frontend et backend dans ma repo et je vais commencer par le frontend maintenant,toute autre amélioration du backend doit attendre un peu car j'ai besoin d'un résultat concret maintenant.
 
 
 
