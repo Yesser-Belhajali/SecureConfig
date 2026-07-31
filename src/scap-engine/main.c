@@ -115,26 +115,6 @@ int main(int argc, char** argv){
 
     printf("Vous avez choisi : %s\n",xccdf_profile_get_id(profile_list[choice]));
 
-    xccdf_policy_model_set_show_rule_details(policy_model,true);
-
-    /*struct xccdf_policy *policy=xccdf_policy_new(policy_model,profile_list[choice]);
-    if(policy==NULL){
-        printf("Echec de la création de la policy!!!!");
-        free(profile_list);
-        xccdf_session_free(session);
-        oscap_cleanup();
-        return 1;
-    }
-
-    if(xccdf_policy_model_add_policy(policy_model,policy)==false){
-        printf("Echec lors de l'ajout de la policy dans la liste des policies de policy_model!!!!");
-        free(profile_list);
-        xccdf_policy_free(policy);
-        xccdf_session_free(session);
-        oscap_cleanup();
-        return 1;
-    }*/
-
     if(!xccdf_session_set_profile_id(session,xccdf_profile_get_id(profile_list[choice]))){
         printf("Erreur dans l'initialisation du profil de la session");
         free(profile_list);
@@ -163,8 +143,6 @@ int main(int argc, char** argv){
     printf("Votre score de conformité est = %f%%\n",xccdf_session_get_base_score(session));
 
 
-
-
     free(profile_list);
     xccdf_session_free(session);
     oscap_cleanup();
@@ -172,13 +150,19 @@ int main(int argc, char** argv){
 }
 
 int mon_callback_start(struct xccdf_rule *rule, void *usr) {
+
     struct xccdf_policy *policy =(struct xccdf_policy *)usr;
+
     const char *rule_id =xccdf_rule_get_id(rule);
+
     const bool rule_selected=xccdf_policy_is_item_selected(policy,rule_id);
+
     if(!rule_selected){
         return 0;
     }
+
     char *rule_title =xccdf_policy_get_readable_item_title(policy,(struct xccdf_item *)rule,NULL);
+    
     printf("Title : %s\n", rule_title);
     printf("Rule : %s\n", rule_id);
     free(rule_title);

@@ -1050,6 +1050,19 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -Maintenant je peux choisir un profil et j'ai un affichage en temps réel des règles et de leur évaluation
 
+-Lors de l'évaluation openscap parse tout le benchmark donc il risque que des rules non choisies vont apparaitre sur l output du callback c'est pour cette raison que j'ai bloqué cela dans le code source
+
+
+--------------------------------------------------------------------------------------------31/07/2026-------------------------------------------------------------------------------
+
+-Il s'est avéré que dans l'environnement openscap il existe plusieurs items,ou item est le type générique mais les en spécifiant la valeur du champ type on spécifie exactement quel item on gére(profile,benchmark,rule,group,value,result).
+
+-xccdf_rule_item est tout item dont le type est rule,c'est la représentation d'openscap pour les regles,apres l'évaluation d'une regle,on produit rule_result,l'ensemble de rule_result sera ensuite ecrit dans un autre item appelé xccdf_rule_item qui est tout item dont le type=result,result stocke tous les resultats des regles du benchmark,meme celles non selectionnees.
+
+-Une policy peut avoir plusieurs results,je crois que c'est du au fait qu'on peut realiser plusieurs scans et policy retourne le result vers session,ou session ne stocke qu'un seul résultat celui produit par la derniere evaluation depuis la session.
+
+-Maintenant je passe a l'analyse du tailoring
+
 
 
 
