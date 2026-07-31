@@ -117,7 +117,7 @@ int main(int argc, char** argv){
 
     xccdf_policy_model_set_show_rule_details(policy_model,true);
 
-    struct xccdf_policy *policy=xccdf_policy_new(policy_model,profile_list[choice]);
+    /*struct xccdf_policy *policy=xccdf_policy_new(policy_model,profile_list[choice]);
     if(policy==NULL){
         printf("Echec de la création de la policy!!!!");
         free(profile_list);
@@ -133,7 +133,7 @@ int main(int argc, char** argv){
         xccdf_session_free(session);
         oscap_cleanup();
         return 1;
-    }
+    }*/
 
     if(!xccdf_session_set_profile_id(session,xccdf_profile_get_id(profile_list[choice]))){
         printf("Erreur dans l'initialisation du profil de la session");
@@ -143,7 +143,9 @@ int main(int argc, char** argv){
         return 1;
     };
 
-    xccdf_policy_model_register_start_callback(policy_model, mon_callback_start, NULL);
+    struct xccdf_policy *policy=xccdf_session_get_xccdf_policy(session);
+
+    xccdf_policy_model_register_start_callback(policy_model, mon_callback_start, policy);
     xccdf_policy_model_register_output_callback(policy_model, mon_callback_output, NULL);
     
     
@@ -154,8 +156,12 @@ int main(int argc, char** argv){
         oscap_cleanup();
         return 1;
     }
+
     
     printf("Evaluation terminée avec succes!!!!!!YYAAAAYYY\n");
+
+    printf("Votre score de conformité est = %f%%\n",xccdf_session_get_base_score(session));
+
 
 
 
@@ -166,14 +172,101 @@ int main(int argc, char** argv){
 }
 
 int mon_callback_start(struct xccdf_rule *rule, void *usr) {
-    const char *rule_id = xccdf_rule_get_id(rule);
-    printf("[START] Évaluation en cours de la règle : %s...\n", rule_id);
+    struct xccdf_policy *policy =(struct xccdf_policy *)usr;
+    const char *rule_id =xccdf_rule_get_id(rule);
+    const bool rule_selected=xccdf_policy_is_item_selected(policy,rule_id);
+    if(!rule_selected){
+        return 0;
+    }
+    char *rule_title =xccdf_policy_get_readable_item_title(policy,(struct xccdf_item *)rule,NULL);
+    printf("Title : %s\n", rule_title);
+    printf("Rule : %s\n", rule_id);
+    free(rule_title);
     return 0;
 }
 
-int mon_callback_output(struct xccdf_rule_result *result, void *usr) {
-    const char *rule_id = xccdf_rule_result_get_idref(result);
-    xccdf_test_result_type_t res_type = xccdf_rule_result_get_result(result);
-    printf("[OUTPUT] Règle %s terminée avec le statut #%d\n", rule_id, res_type);
+int mon_callback_output(struct xccdf_rule_result *rule_result, void *usr) {
+
+    xccdf_test_result_type_t result_type = xccdf_rule_result_get_result(rule_result);
+
+    if(result_type==XCCDF_RESULT_NOT_SELECTED){
+        return 0;
+    }
+
+    const char *rule_result_type="UNKNOWN";
+
+    switch(result_type){
+        case XCCDF_RESULT_PASS:
+            rule_result_type = "PASS";
+            break;
+
+        case XCCDF_RESULT_FAIL:
+            rule_result_type = "FAIL";
+            break;
+
+        case XCCDF_RESULT_ERROR:
+            rule_result_type = "ERROR";
+            break;
+
+        case XCCDF_RESULT_UNKNOWN:
+            rule_result_type = "UNKNOWN";
+            break;
+
+        case XCCDF_RESULT_NOT_APPLICABLE:
+            rule_result_type = "NOT_APPLICABLE";
+            break;
+
+        case XCCDF_RESULT_NOT_CHECKED:
+            rule_result_type = "NOT_CHECKED";
+            break;
+
+        case XCCDF_RESULT_NOT_SELECTED:
+            rule_result_type = "NOT_SELECTED";
+            break;
+
+        case XCCDF_RESULT_INFORMATIONAL:
+            rule_result_type = "INFORMATIONAL";
+            break;
+
+        case XCCDF_RESULT_FIXED:
+            rule_result_type = "FIXED";
+            break;
+    }
+
+
+
+    const char *rule_result_time=xccdf_rule_result_get_time(rule_result);
+
+    const char *rule_result_severity="Not Defined";
+
+    xccdf_level_t severity_type=xccdf_rule_result_get_severity(rule_result);
+
+    switch (severity_type) {
+    case XCCDF_LEVEL_NOT_DEFINED:
+        rule_result_severity = "Not Defined";
+        break;
+
+    case XCCDF_UNKNOWN:
+        rule_result_severity = "Unknown";
+        break;
+
+    case XCCDF_INFO:
+        rule_result_severity = "Info";
+        break;
+
+    case XCCDF_LOW:
+        rule_result_severity = "Low";
+        break;
+
+    case XCCDF_MEDIUM:
+        rule_result_severity = "Medium";
+        break;
+
+    case XCCDF_HIGH:
+        rule_result_severity = "High";
+        break;
+    }
+
+    printf("Time : %s\nSeverity : %s\nStatus :  %s\n\n",rule_result_time,rule_result_severity ,rule_result_type);
     return 0;
 }

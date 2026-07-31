@@ -1040,6 +1040,16 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -Il s'est avéré que l'ensemble des fonctions données par l'IA sur le fichier xccdf_session.h était manquant plusieurs autres alors je vais recommencer l'analyse
 
+-Au lieu de tout régler moi-meme et me débarasser de session je peux la garder pour ce qui est nécessaire et déléguer les autres choses a policy par exemple lorsque c'est nécessaire
+
+-Maintenant je vais proceder par analyser les structures rule et rule result pour savoir quoi afficher a l'utilisateur
+
+-J'avais un probleme avec l'output sur le CLI ou il existait des résultats de rules sans leur rules,je crois que le probleme est que output_callback appelle rule_result sur toutes les regles meme si elles ne sont pas appliquees car toutes les rule results affichees sont not_applicable
+
+-Je me suis enseigné la maniere dont oscap gere l'output,il s'est avéré qu'il bloque le résultat des regles non appliquées avant ne se qu'elles s ecrivent sur stdout
+
+-Maintenant je peux choisir un profil et j'ai un affichage en temps réel des règles et de leur évaluation
+
 
 
 
