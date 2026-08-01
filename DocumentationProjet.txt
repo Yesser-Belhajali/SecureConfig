@@ -1063,6 +1063,20 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -Maintenant je passe a l'analyse du tailoring
 
+-Le tailoring c'est la modification d'un profil de sécurité de facon a le rendre convenable pour notre cas d'utilisation,c'est le fait d'activer,désactiver des regles ou meme changer la valeur prise par ces regles.
+
+-On peut introduire un fichier de tailoring de deux facons dans notre session,soit l'introduire comme un fichier externe ou l'introduire comme un composant du datastream,la ptemiere approche est plus bonne car elle nous permet de garder la signature de sécurité du fichier
+
+-Mon probleme pour le tailoring etait la facon il est implémenté dans oscap et autotailor
+
+-Openscap est tout le projet créé par Red Hat,c'est un moteur qui gere le contenu SCAP,il expose une API,ou librairie appelee libopenscap que plusieurs outils comme autotailor ou oscap utilisent.
+
+-Mon probleme avec le tailoring est ces limitations,le fait qu'on ne peut que commencer depuis un profil deja existant,on ne peut pas lister et meme si je veux commencer depuis un profil je ne peux pas lui ajouter des regles car je n'ai pas leurs IDs
+
+-La solution que j'ai trouvé est de parcourir tout le benchmark est stocker toutes les regles et les afficher a l'utilisateur pour qu'il choisisse ce qu'il veut et pour qu'il puisse en fin sauvegarder son propre profil
+
+-J'ai réussi à implémenter ca,tous les tests fonctionnent.
+
 
 
 
