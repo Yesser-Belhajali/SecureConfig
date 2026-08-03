@@ -263,7 +263,7 @@ honneteté scientifique
 
 --------------------------------------------------------------------------------------------13/07/2026-------------------------------------------------------------------------------
 
--Aujourd'hui je me suis allé a la STEG,des que je me suis arrivé,j'ai appelé Me Chawki pour planifier le rendez-vous,mais il a décroché et m'a envoyé un message en disant qu'il va me rappeler,cela s'est passé a 9h du matin.
+-Aujourd'hui je me suis allé a la STEG,des que je me suis arrivé,j'ai appelé Mr Chawki pour planifier le rendez-vous,mais il a décroché et m'a envoyé un message en disant qu'il va me rappeler,cela s'est passé a 9h du matin.
 -A 11:30h je n'ai rien recu de sa part alors je lui ai rappelé encore une fois et il m'a dit vien maintenant
 -Je l'ai expliqué tout,SCAP,OpenSCAP et tout ce que j'ai recherché,puis je l'ai montré une démo et le rapport HTML que OpenSCAP génére et il a dit ce que je pensais depuis une semaine,mon projet n'a pas un grand ajout ou une innovation puisque OpenSCAP offre tout ca deja
 -Alors on s'est mit daccord de creer une plateforme basée sur Ansible et automatiser l'audit sur plusieurs machines
@@ -1077,10 +1077,40 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -J'ai réussi à implémenter ca,tous les tests fonctionnent.
 
+--------------------------------------------------------------------------------------------1/08/2026-------------------------------------------------------------------------------
+
+-Création du backend et du frontend
+
+-J'ai réussi a réaliser un frontend joli et interactif,maintenant je dois passer à résoudre la génération de profil pour la sauvegarde du chois de l'utilisateur.
+
+-J'ai essayé de réaliser le tailoring en utilisant autotailor,mais la seule maniere que j'ai trouvé est d'utiliser le tailoring sur un fichier deja existant,ce qui pose la question,est il possible de créer un profil from scratch pas en se basant sur un autre profil(si un profil utilise un autre il utilise le champ extends=true),et meme si ce n'est pas possible,comment collecter toutes les regles d'un benchmark pour pouvoir ajouter a un profil,la suppression de selection est facile mais la selection sans ID est impossible,c'est pour cette raison que j'ai créé une fonction qui stocke toutes les regles au sein d'un benchmark
+
+--------------------------------------------------------------------------------------------2/08/2026-------------------------------------------------------------------------------
+
+-Il s'est avéré que oui on peut creer un fichier from scratch et c'est meme géré dans libopenscap,donc il me reste qu' a trouver une facon de faire cela,soit je cree un script python qui cree un document .xml soit libopenscap fait cela deja
+
+
+--------------------------------------------------------------------------------------------3/08/2026-------------------------------------------------------------------------------
+
+-2 Jours pour tout faire,2 jours
+
+-J'ai trouvé 3 structures intéressantes surant mes recherches dans l'API de openscap
+-ds_rds_session:c'est une structure utilisée pour représenter en mémoire le résultat d'un Data Stream
+
+-oscap_source:c'est une structure qui represente tout type de fichier qu'openscap peut traiter(XCCDF,OVAL,Data Stream)
+
+-ds_sds_session:c'est une structure qui représente le Data Stream en entier et peut le comprendre,on peut l'utiliser pour gérer les composants d'un fichier Dta Stream(les composants d'un fichier Data Stream sont les grands blocs comme XCCDF,OVAL etc...),et ds_sds_session va gérer la communication entre eux et ils seront sa proprieté(elle va les libérer)
+-On crée une ds_sds_session depuis oscap_source mais ds_sds_session ne va pas etre la proprietaire du oscap_source
+
+-Les fichiers que je vais utiliser dans le futur dans un ordre croissant sont:(oscap_helpers->oscap_debug->oscap_error->oscap_text->ds_rds_session->ds_sds_session->oscap_source->oscap->scap_ds->xccdf_benchmark->xccdf_policy->xccdf_session)
+
+-Lorsque le client choisit un profil je vais lui envoyer une liste des regles choisies et non,au lieu de lui envoyer deux tableau je lui envoie un seul tableau avec deux champs(regle,flag qui indique choisi ou non),donc coté serveur je collecte toutes les regles du benchmark et j'utilise is_item_selected de policy et j'envoie au client
 
 
 
-
+-Yesser sob outil mta3 verif double free
+-Yesser 8odwa rigel kifech ki na5tarou profil y5arajli les regles mte3ou el kol selectionnées w ki na7i wa7da tetna7a mel policy mba3ed lel évaluation
+-Yesser 8odwa zid lister toutes les regles fel benchmark zeda
 
 
 
