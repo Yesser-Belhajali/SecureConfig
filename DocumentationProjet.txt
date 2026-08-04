@@ -1106,6 +1106,12 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -Lorsque le client choisit un profil je vais lui envoyer une liste des regles choisies et non,au lieu de lui envoyer deux tableau je lui envoie un seul tableau avec deux champs(regle,flag qui indique choisi ou non),donc coté serveur je collecte toutes les regles du benchmark et j'utilise is_item_selected de policy et j'envoie au client
 
+-J'ai réussi a creer une fonction qui retourne les profils,une autre qui affiche toutes les regles d'un benchmark et une derniere qui affiche toutes les regles d'une policy
+
+-Maintenant je passe à la création du serveur de backend
+
+-J'ai réussi à créer un serveur HTTP qui retourne sous format JSON les couple ID et titre des profils présents dans un benchmark
+
 
 
 -Yesser sob outil mta3 verif double free

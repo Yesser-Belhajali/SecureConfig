@@ -2,8 +2,27 @@
 #include <stdio.h>
 #include <string.h>
 #include <microhttpd.h>
+#include "scap_service.h"
+#include "json_utils.h"
 
 #define PORT 8000
+
+static int extract_benchmark_id(const char *url, char *out_id, size_t out_size) {
+    // format attendu : /benchmarks/<id>/profiles
+    if (sscanf(url, "/benchmarks/%63[^/]/profiles", out_id) != 1) {
+        return 0; // ne correspond pas au pattern
+    }
+    return 1;
+}
+
+static int resolve_ds_path(const char *benchmark_id, char *out_path, size_t out_size) {
+    // convention : data/ssg-<id>-ds.xml
+    int n = snprintf(out_path, out_size, "../data/ssg-%s-ds.xml", benchmark_id);
+    if (n < 0 || (size_t)n >= out_size) {
+        return 0; // troncature, id trop long
+    }
+    return 1;
+}
 
 static enum MHD_Result handle_request(void *cls,
                                         struct MHD_Connection *connection,
@@ -14,28 +33,55 @@ static enum MHD_Result handle_request(void *cls,
                                         size_t *upload_data_size,
                                         void **con_cls) {
 
-    // MHD appelle ce callback plusieurs fois par requête (une fois pour les headers,
-    // une fois par chunk de body). Pour du GET simple sans body, on veut agir
-    // une seule fois : on utilise con_cls comme marqueur de "première fois".
     static int dummy;
     if (*con_cls == NULL) {
         *con_cls = &dummy;
-        return MHD_YES;  // attendre le vrai traitement au prochain appel
+        return MHD_YES;
     }
 
     const char *response_text;
     int status_code;
+    enum MHD_ResponseMemoryMode mem_mode = MHD_RESPMEM_MUST_COPY;
+
+    char benchmark_id[64];
 
     if (strcmp(method, "GET") == 0 && strcmp(url, "/hello") == 0) {
         response_text = "{\"message\":\"Salut depuis le backend C!\"}";
         status_code = MHD_HTTP_OK;
-    } else {
+    }
+    else if (strcmp(method, "GET") == 0 && extract_benchmark_id(url, benchmark_id, sizeof(benchmark_id))) {
+        char ds_path[256];
+        if (!resolve_ds_path(benchmark_id, ds_path, sizeof(ds_path))) {
+            response_text = "{\"error\":\"invalid benchmark id\"}";
+            status_code = MHD_HTTP_BAD_REQUEST;
+        } else {
+            struct profile_list *profiles = NULL;
+            int count = list_profiles_for_ds(ds_path, &profiles);
+
+            if (count < 0) {
+                response_text = "{\"error\":\"failed to load benchmark\"}";
+                status_code = MHD_HTTP_NOT_FOUND;
+            } else {
+                response_text = profiles_to_json(profiles, count);
+                free_profile_list(profiles, count);
+
+                if (response_text == NULL) {
+                    response_text = "{\"error\":\"json serialization failed\"}";
+                    status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+                } else {
+                    status_code = MHD_HTTP_OK;
+                    mem_mode = MHD_RESPMEM_MUST_FREE;
+                }
+            }
+        }
+    }
+    else {
         response_text = "{\"error\":\"not found\"}";
         status_code = MHD_HTTP_NOT_FOUND;
     }
 
     struct MHD_Response *response = MHD_create_response_from_buffer(
-        strlen(response_text), (void *)response_text, MHD_RESPMEM_MUST_COPY);
+        strlen(response_text), (void *)response_text, mem_mode);
 
     MHD_add_response_header(response, "Content-Type", "application/json");
     MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
