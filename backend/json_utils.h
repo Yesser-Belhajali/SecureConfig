@@ -6,4 +6,6 @@
 
 char *profiles_to_json(struct profile_list *profiles, int count);
 
+char *rules_to_json(struct rule_list *rules, int count);
+
 #endif

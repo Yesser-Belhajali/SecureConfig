@@ -1113,6 +1113,13 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 -J'ai réussi à créer un serveur HTTP qui retourne sous format JSON les couple ID et titre des profils présents dans un benchmark
 
 
+--------------------------------------------------------------------------------------------4/08/2026-------------------------------------------------------------------------------
+
+
+-J'ai réussi à ajouter au serveur HTTP en C la fonctionnalité de retourner sous format JSON toutes les règles au sein d'un benchmark,j'ai décidé de reporter le fait d'afficher l'arborescence des regles en les groupant sous groupes
+-Maintenant je passe a l'affichage des regles selectionnees par une policy
+-J'ai un seul probleme en tete concernant la modification d'une policy,lorsque qu'un utilisateur charge un profil comme CIS server level 1 par exemple,et ajoute/rejette une recommendation,comment faire cela dans le backend,est ce que je cree une nouvelle policy ou simplement select_add je ne sais pas concretement
+
 
 -Yesser sob outil mta3 verif double free
 -Yesser 8odwa rigel kifech ki na5tarou profil y5arajli les regles mte3ou el kol selectionnées w ki na7i wa7da tetna7a mel policy mba3ed lel évaluation

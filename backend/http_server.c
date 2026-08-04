@@ -8,9 +8,24 @@
 #define PORT 8000
 
 static int extract_benchmark_id(const char *url, char *out_id, size_t out_size) {
-    // format attendu : /benchmarks/<id>/profiles
+    // Vérifie explicitement la présence de "/profiles" à la fin de la chaîne
+    if (strstr(url, "/profiles") == NULL) {
+        return 0;
+    }
     if (sscanf(url, "/benchmarks/%63[^/]/profiles", out_id) != 1) {
-        return 0; // ne correspond pas au pattern
+        return 0;
+    }
+    return 1;
+}
+
+
+static int extract_rules_request(const char *url, char *out_id, size_t out_size) {
+    // Vérifie explicitement la présence de "/rules" à la fin de la chaîne
+    if (strstr(url, "/rules") == NULL) {
+        return 0;
+    }
+    if (sscanf(url, "/benchmarks/%63[^/]/rules", out_id) != 1) {
+        return 0;
     }
     return 1;
 }
@@ -69,6 +84,35 @@ static enum MHD_Result handle_request(void *cls,
                     response_text = "{\"error\":\"json serialization failed\"}";
                     status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
                 } else {
+                    status_code = MHD_HTTP_OK;
+                    mem_mode = MHD_RESPMEM_MUST_FREE;
+                }
+            }
+        }
+    }
+    else if (strcmp(method, "GET") == 0 && extract_rules_request(url, benchmark_id, sizeof(benchmark_id))) {
+        char ds_path[256];
+        if (!resolve_ds_path(benchmark_id, ds_path, sizeof(ds_path))) {
+            response_text = "{\"error\":\"invalid benchmark id\"}";
+            status_code = MHD_HTTP_BAD_REQUEST;
+        }
+        else {
+            struct rule_list *rules = NULL;
+            int count = list_rules_for_ds(ds_path, &rules);
+
+            if (count < 0) {
+                response_text = "{\"error\":\"failed to load rules\"}";
+                status_code = MHD_HTTP_NOT_FOUND;
+            }
+            else {
+                response_text = rules_to_json(rules, count);
+                free_rule_info_list(rules, count);
+
+                if (response_text == NULL) {
+                    response_text = "{\"error\":\"json serialization failed\"}";
+                    status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+                }
+                else {
                     status_code = MHD_HTTP_OK;
                     mem_mode = MHD_RESPMEM_MUST_FREE;
                 }
