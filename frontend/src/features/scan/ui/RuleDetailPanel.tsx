@@ -19,39 +19,39 @@ export default function RuleDetailPanel({ rule, onClose }: RuleDetailPanelProps)
   const isOpen = rule !== null;
 
   return (
-    <>
-      <div
-        className={`rule-panel-backdrop ${isOpen ? "is-open" : ""}`}
-        onClick={onClose}
-        aria-hidden={!isOpen}
-      />
+    <aside
+      className={`rule-panel ${isOpen ? "is-open" : ""}`}
+      aria-hidden={!isOpen}
+      aria-label="Détails de la règle"
+    >
+      {rule && (
+        <>
+          <div className="rule-panel-header">
+            <h3>{rule.title}</h3>
+            <button className="rule-panel-close" onClick={onClose} aria-label="Fermer">
+              ✕
+            </button>
+          </div>
 
-      <aside className={`rule-panel ${isOpen ? "is-open" : ""}`} aria-hidden={!isOpen}>
-        {rule && (
-          <>
-            <div className="rule-panel-header">
-              <h3>{rule.title}</h3>
-              <button className="rule-panel-close" onClick={onClose} aria-label="Fermer">
-                ✕
-              </button>
-            </div>
+          <dl className="rule-panel-body">
+            <dt>ID</dt>
+            <dd className="rule-id">{rule.id}</dd>
 
-            <dl className="rule-panel-body">
-              <dt>ID</dt>
-              <dd className="rule-id">{rule.id}</dd>
+            <dt>Sévérité</dt>
+            <dd>
+              <span className={`rule-severity ${SEVERITY_CLASS_FALLBACK}`}>{rule.severity}</span>
+            </dd>
 
-              <dt>Sévérité</dt>
-              <dd>{rule.severity}</dd>
+            <dt>Description</dt>
+            <dd>{rule.description || "—"}</dd>
 
-              <dt>Description</dt>
-              <dd>{rule.description || "—"}</dd>
-
-              <dt>Justification</dt>
-              <dd>{rule.rationale || "—"}</dd>
-            </dl>
-          </>
-        )}
-      </aside>
-    </>
+            <dt>Justification</dt>
+            <dd>{rule.rationale || "—"}</dd>
+          </dl>
+        </>
+      )}
+    </aside>
   );
 }
+
+const SEVERITY_CLASS_FALLBACK = "";

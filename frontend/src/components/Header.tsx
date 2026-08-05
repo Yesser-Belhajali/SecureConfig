@@ -32,6 +32,7 @@ const CloseIcon = () => (
 export function Header() {
   const [open, setOpen] = useState(false)
   const [isLight, setIsLight] = useState(false)
+  const [isHeaderHidden, setIsHeaderHidden] = useState(false)
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem('secureconfig-theme')
@@ -39,6 +40,17 @@ export function Header() {
     setIsLight(light)
     document.documentElement.dataset.theme = light ? 'light' : 'dark'
   }, [])
+  useEffect(() => {
+    let lastScrollY = window.scrollY
+    const onScroll = () => {
+      const currentScrollY = window.scrollY
+      if (!open) setIsHeaderHidden(currentScrollY > 96 && currentScrollY > lastScrollY)
+      lastScrollY = currentScrollY
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [open])
+
 
   const toggleTheme = () => {
     setIsLight(current => {
@@ -58,12 +70,13 @@ export function Header() {
 
   return (
     <header
-      className="sticky top-0 z-50 border-b"
+      className="sticky top-0 z-50 border-b transition-transform duration-300 ease-out"
       style={{
         backgroundColor: 'rgba(13,15,18,0.92)',
         borderColor: 'rgba(255,255,255,0.07)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
+        transform: isHeaderHidden ? 'translateY(-100%)' : 'translateY(0)',
       }}
     >
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">

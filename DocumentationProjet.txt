@@ -1127,6 +1127,15 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 -Maintenant je vais passer au frontend,le relier au backend et structurer son affichage
 
 
+--------------------------------------------------------------------------------------------5/08/2026-------------------------------------------------------------------------------
+
+-YYYYAAAAYYYYYY
+-Le front et le back sont reliés,je peux choisir une distro,un benchmark et afficher les profils présents pour ce benchmark,je peux meme charger toutes les regles d'un profil,le seul probleme est le design je dois le réparer
+-J'ai réalisé des améliorations au front,maintenant je dois passer a l'affichage de toutes les regles d'un benchmark
+
+
+-Yesser rahou reinitialiser fi afficher regles profils t3awed ta3mel requete zid choufha la7keya
+-Yesser verifi el contenu mta3 opensuse el profil ma5arrajli ken 3 regles
 -Yesser sob outil mta3 verif double free
 -Yesser 8odwa rigel kifech ki na5tarou profil y5arajli les regles mte3ou el kol selectionnées w ki na7i wa7da tetna7a mel policy mba3ed lel évaluation
 -Yesser 8odwa zid lister toutes les regles fel benchmark zeda

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ds:data-stream-collection xmlns:cat="urn:oasis:names:tc:entity:xmlns:xml:catalog" xmlns:cpe-dict="http://cpe.mitre.org/dictionary/2.0" xmlns:cpe-lang="http://cpe.mitre.org/language/2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:ds="http://scap.nist.gov/schema/scap/source/1.2" xmlns:html="http://www.w3.org/1999/xhtml" xmlns:ind="http://oval.mitre.org/XMLSchema/oval-definitions-5#independent" xmlns:linux="http://oval.mitre.org/XMLSchema/oval-definitions-5#linux" xmlns:ocil="http://scap.nist.gov/schema/ocil/2.0" xmlns:oval="http://oval.mitre.org/XMLSchema/oval-common-5" xmlns:oval-def="http://oval.mitre.org/XMLSchema/oval-definitions-5" xmlns:sce="http://open-scap.org/page/SCE_xccdf_stream" xmlns:unix="http://oval.mitre.org/XMLSchema/oval-definitions-5#unix" xmlns:xccdf-1.2="http://checklists.nist.gov/xccdf/1.2" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="scap_org.open-scap_collection_from_xccdf_ssg-ubuntu2404-xccdf.xml" schematron-version="1.3">
-  <ds:data-stream id="scap_org.open-scap_datastream_from_xccdf_ssg-ubuntu2404-xccdf.xml" scap-version="1.3" use-case="OTHER" timestamp="2026-08-04T01:15:28">
+  <ds:data-stream id="scap_org.open-scap_datastream_from_xccdf_ssg-ubuntu2404-xccdf.xml" scap-version="1.3" use-case="OTHER" timestamp="2026-08-05T03:25:39">
     <ds:dictionaries>
       <ds:component-ref id="scap_org.open-scap_cref_ssg-ubuntu2404-cpe-dictionary.xml" xlink:href="#scap_org.open-scap_comp_ssg-ubuntu2404-cpe-dictionary.xml">
         <cat:catalog>
@@ -185,7 +185,7 @@
       <ds:component-ref id="scap_org.open-scap_cref_ubuntu2404-checks-sce-audit_rules_privileged_commands.sh" xlink:href="#scap_org.open-scap_ecomp_ubuntu2404-checks-sce-audit_rules_privileged_commands.sh"/>
     </ds:checks>
   </ds:data-stream>
-  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-cpe-dictionary.xml" timestamp="2026-08-04T01:15:28">
+  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-cpe-dictionary.xml" timestamp="2026-08-05T03:25:39">
     <cpe-dict:cpe-list xsi:schemaLocation="http://cpe.mitre.org/dictionary/2.0 http://cpe.mitre.org/files/cpe-dictionary_2.1.xsd">
       <cpe-dict:cpe-item name="cpe:/o:canonical:ubuntu_linux:24.04::~~lts~~~">
         <cpe-dict:title xml:lang="en-us">Ubuntu release 24.04 (Noble Numbat)</cpe-dict:title>
@@ -193,9 +193,9 @@
       </cpe-dict:cpe-item>
     </cpe-dict:cpe-list>
   </ds:component>
-  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-xccdf.xml" timestamp="2026-08-04T01:15:28">
+  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-xccdf.xml" timestamp="2026-08-05T03:25:39">
     <xccdf-1.2:Benchmark id="xccdf_org.ssgproject.content_benchmark_UBUNTU_24-04" xsi:schemaLocation="http://checklists.nist.gov/xccdf/1.2 xccdf-1.2.xsd" style="SCAP_1.2" resolved="true" xml:lang="en-US">
-      <xccdf-1.2:status date="2026-08-04">draft</xccdf-1.2:status>
+      <xccdf-1.2:status date="2026-08-05">draft</xccdf-1.2:status>
       <xccdf-1.2:title>Guide to the Secure Configuration of Ubuntu 24.04</xccdf-1.2:title>
       <xccdf-1.2:description>This guide presents a catalog of security-relevant
 configuration settings for Ubuntu 24.04. It is a rendering of
@@ -148853,13 +148853,13 @@ fi
       </xccdf-1.2:Group>
     </xccdf-1.2:Benchmark>
   </ds:component>
-  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-oval.xml" timestamp="2026-08-04T01:15:28">
+  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-oval.xml" timestamp="2026-08-05T03:25:39">
     <oval-def:oval_definitions xsi:schemaLocation="http://oval.mitre.org/XMLSchema/oval-common-5 oval-common-schema.xsd  http://oval.mitre.org/XMLSchema/oval-definitions-5 oval-definitions-schema.xsd  http://oval.mitre.org/XMLSchema/oval-definitions-5#independent independent-definitions-schema.xsd  http://oval.mitre.org/XMLSchema/oval-definitions-5#unix unix-definitions-schema.xsd  http://oval.mitre.org/XMLSchema/oval-definitions-5#linux linux-definitions-schema.xsd">
       <oval-def:generator>
         <oval:product_name>OVALFileLinker from SCAP Security Guide</oval:product_name>
         <oval:product_version>ssg: [0, 1, 82], python: 3.12.3</oval:product_version>
         <oval:schema_version>5.11.2</oval:schema_version>
-        <oval:timestamp>2026-08-04T01:15:18</oval:timestamp>
+        <oval:timestamp>2026-08-05T03:24:51</oval:timestamp>
       </oval-def:generator>
       <oval-def:definitions>
         <oval-def:definition id="oval:ssg-audit_rules_immutable:def:1" version="1" class="compliance">
@@ -179722,13 +179722,13 @@ fi
       </oval-def:variables>
     </oval-def:oval_definitions>
   </ds:component>
-  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-ocil.xml" timestamp="2026-08-04T01:15:28">
+  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-ocil.xml" timestamp="2026-08-05T03:25:39">
     <ocil:ocil>
       <ocil:generator>
         <ocil:product_name>build_shorthand.py from SCAP Security Guide</ocil:product_name>
         <ocil:product_version>ssg: 0.1.82</ocil:product_version>
         <ocil:schema_version>2.0</ocil:schema_version>
-        <ocil:timestamp>2026-08-04T01:15:18</ocil:timestamp>
+        <ocil:timestamp>2026-08-05T03:24:51</ocil:timestamp>
       </ocil:generator>
       <ocil:questionnaires>
         <ocil:questionnaire id="ocil:ssg-account_disable_post_pw_expiration_ocil:questionnaire:1">
@@ -194216,13 +194216,13 @@ No line should be returned, each line returned is a boot entry that does not ext
       </ocil:questions>
     </ocil:ocil>
   </ds:component>
-  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-cpe-oval.xml" timestamp="2026-08-04T01:15:28">
+  <ds:component id="scap_org.open-scap_comp_ssg-ubuntu2404-cpe-oval.xml" timestamp="2026-08-05T03:25:39">
     <oval-def:oval_definitions xsi:schemaLocation="http://oval.mitre.org/XMLSchema/oval-common-5 oval-common-schema.xsd  http://oval.mitre.org/XMLSchema/oval-definitions-5 oval-definitions-schema.xsd  http://oval.mitre.org/XMLSchema/oval-definitions-5#independent independent-definitions-schema.xsd  http://oval.mitre.org/XMLSchema/oval-definitions-5#unix unix-definitions-schema.xsd  http://oval.mitre.org/XMLSchema/oval-definitions-5#linux linux-definitions-schema.xsd">
       <oval-def:generator>
         <oval:product_name>build_cpe.py from SCAP Security Guide</oval:product_name>
         <oval:product_version>ssg: [0, 1, 82], python: 3.12.3</oval:product_version>
         <oval:schema_version>5.11.2</oval:schema_version>
-        <oval:timestamp>2026-08-04T01:15:27</oval:timestamp>
+        <oval:timestamp>2026-08-05T03:25:30</oval:timestamp>
       </oval-def:generator>
       <oval-def:definitions>
         <oval-def:definition id="oval:ssg-installed_env_has_grub2_package:def:1" version="1" class="inventory">
@@ -195545,7 +195545,7 @@ No line should be returned, each line returned is a boot entry that does not ext
       </oval-def:states>
     </oval-def:oval_definitions>
   </ds:component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-all_apparmor_profiles_enforced.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-all_apparmor_profiles_enforced.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 # If apparmor or apparmor-utils are not installed, then this test fails.
@@ -195569,7 +195569,7 @@ fi
 exit $XCCDF_RESULT_PASS
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-all_apparmor_profiles_in_enforce_complain_mode.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-all_apparmor_profiles_in_enforce_complain_mode.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 # If apparmor or apparmor-utils are not installed, then this test fails.
@@ -195593,7 +195593,7 @@ fi
 exit $XCCDF_RESULT_PASS
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-apparmor_configured.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-apparmor_configured.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled apparmor.service) == "enabled" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -195601,7 +195601,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_rsyslog_enabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_rsyslog_enabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled rsyslog.service) == "enabled" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -195609,7 +195609,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_systemd-journal-upload_enabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_systemd-journal-upload_enabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled systemd-journal-upload.service) == "enabled" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -195617,7 +195617,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_systemd-journald_enabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_systemd-journald_enabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled systemd-journald.service) == "enabled" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -195625,7 +195625,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-socket_systemd-journal-remote_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-socket_systemd-journal-remote_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled systemd-journal-remote.socket) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -195633,7 +195633,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_ip6tables_default_rule.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_ip6tables_default_rule.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 # Pass rule if IPv6 is disabled on kernel
@@ -195660,7 +195660,7 @@ done &lt;&lt;&lt; "$output"
 exit "$XCCDF_RESULT_PASS"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_ipv6_loopback_traffic.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_ipv6_loopback_traffic.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 # Pass rule if IPv6 is disabled on kernel
@@ -195686,7 +195686,7 @@ fi
 exit "$XCCDF_RESULT_PASS"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_loopback_traffic.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_loopback_traffic.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 # Check that iptables exist in current path
@@ -195716,7 +195716,7 @@ exit "$XCCDF_RESULT_PASS"
 
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-ip6tables_rules_for_open_ports.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-ip6tables_rules_for_open_ports.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 result=$XCCDF_RESULT_PASS
@@ -195738,7 +195738,7 @@ done &lt; &lt;(ss -6tulnH | awk '($5!~/::1/) {n=split($5, a, ":"); print $1, a[n
 exit $result
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-iptables_rules_for_open_ports.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-iptables_rules_for_open_ports.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 result=$XCCDF_RESULT_PASS
@@ -195755,7 +195755,7 @@ done &lt; &lt;(ss -4tuln | awk '($5!~/%lo:/ &amp;&amp; $5!~/127.0.0.1:/ &amp;&am
 exit "$result"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_iptables_default_rule.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_iptables_default_rule.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 output="$(iptables -L | grep Chain)"
@@ -195777,7 +195777,7 @@ done &lt;&lt;&lt; "$output"
 exit "${XCCDF_RESULT_PASS}"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_all_accept_ra.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_all_accept_ra.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -195868,7 +195868,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_all_accept_redirects.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_all_accept_redirects.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -195959,7 +195959,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_all_accept_source_route.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_all_accept_source_route.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196050,7 +196050,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_all_forwarding.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_all_forwarding.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196141,7 +196141,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_default_accept_ra.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_default_accept_ra.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196232,7 +196232,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_default_accept_redirects.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_default_accept_redirects.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196323,7 +196323,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_default_accept_source_route.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv6_conf_default_accept_source_route.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196414,7 +196414,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_accept_redirects.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_accept_redirects.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196500,7 +196500,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_accept_source_route.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_accept_source_route.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196586,7 +196586,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_log_martians.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_log_martians.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196672,7 +196672,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_rp_filter.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_rp_filter.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196758,7 +196758,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_secure_redirects.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_secure_redirects.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196844,7 +196844,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_accept_redirects.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_accept_redirects.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -196930,7 +196930,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_accept_source_route.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_accept_source_route.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197016,7 +197016,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_log_martians.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_log_martians.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197102,7 +197102,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_rp_filter.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_rp_filter.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197188,7 +197188,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_secure_redirects.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_secure_redirects.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197274,7 +197274,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_icmp_echo_ignore_broadcasts.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_icmp_echo_ignore_broadcasts.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197360,7 +197360,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_icmp_ignore_bogus_error_responses.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_icmp_ignore_bogus_error_responses.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197446,7 +197446,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_tcp_syncookies.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_tcp_syncookies.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197532,7 +197532,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_send_redirects.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_all_send_redirects.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197617,7 +197617,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_send_redirects.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_conf_default_send_redirects.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197702,7 +197702,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_ip_forward.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_net_ipv4_ip_forward.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -197787,7 +197787,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-nftables_ensure_default_deny_policy.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-nftables_ensure_default_deny_policy.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 # Check if default policy is drop
@@ -197802,7 +197802,7 @@ fi
 exit "${XCCDF_RESULT_PASS}"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_nftables_base_chain.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_nftables_base_chain.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 output=$(nft list ruleset)
@@ -197816,7 +197816,7 @@ fi
 exit "${XCCDF_RESULT_PASS}"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_nftables_loopback_traffic.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_nftables_loopback_traffic.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 output=$(nft list ruleset | awk '/hook input/,/}/')
@@ -197837,7 +197837,7 @@ fi
 exit "${XCCDF_RESULT_PASS}"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_nftables_table.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_nftables_table.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 tbl_output=$(nft list tables | grep inet)
@@ -197848,7 +197848,7 @@ fi
 exit ${XCCDF_RESULT_PASS}
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-check_ufw_active.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-check_ufw_active.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 result=$XCCDF_RESULT_FAIL
@@ -197860,7 +197860,7 @@ fi
 exit $result
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_ufw_default_rule.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_ufw_default_rule.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 default_status=$(ufw status verbose | grep "Default:")
@@ -197874,7 +197874,7 @@ fi
 exit "$XCCDF_RESULT_PASS"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_ufw_loopback_traffic.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-set_ufw_loopback_traffic.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 ufw_status=$(ufw status verbose)
@@ -197915,7 +197915,7 @@ fi
 exit "${XCCDF_RESULT_PASS}"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-ufw_rate_limit.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-ufw_rate_limit.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 ufw_status="$(ufw status verbose)"
@@ -197943,7 +197943,7 @@ done &lt; &lt;(ss -tulnH | awk '{n=split($5, a, ":"); print a[n]}' | sort -u)
 exit $XCCDF_RESULT_PASS
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-ufw_rules_for_open_ports.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-ufw_rules_for_open_ports.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 result=$XCCDF_RESULT_PASS
@@ -197960,7 +197960,7 @@ done &lt; &lt;(ss -tuln | awk '($5!~/%lo:/ &amp;&amp; $5!~/127.0.0.1:/ &amp;&amp
 exit "$result"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_bluetooth_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_bluetooth_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled bluetooth.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -197968,7 +197968,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-file_permissions_unauthorized_world_writable.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-file_permissions_unauthorized_world_writable.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 
@@ -198005,7 +198005,7 @@ exit "${XCCDF_RESULT_PASS}"
 
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-file_permissions_ungroupowned.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-file_permissions_ungroupowned.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 
@@ -198042,7 +198042,7 @@ exit "${XCCDF_RESULT_PASS}"
 
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-no_files_unowned_by_user.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-no_files_unowned_by_user.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 
 
@@ -198079,7 +198079,7 @@ exit "${XCCDF_RESULT_PASS}"
 
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_autofs_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_autofs_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled autofs.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198087,7 +198087,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_kernel_dmesg_restrict.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_kernel_dmesg_restrict.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -198172,7 +198172,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_kernel_yama_ptrace_scope.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_kernel_yama_ptrace_scope.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -198268,7 +198268,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_fs_suid_dumpable.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_fs_suid_dumpable.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -198353,7 +198353,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_kernel_randomize_va_space.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-sysctl_kernel_randomize_va_space.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 
@@ -198438,7 +198438,7 @@ fi
 exit $XCCDF_RESULT_FAIL
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_apport_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_apport_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled apport.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198446,7 +198446,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_avahi-daemon_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_avahi-daemon_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled avahi-daemon.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198454,7 +198454,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_kdump_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_kdump_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled kdump-tools.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198462,7 +198462,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_cron_enabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_cron_enabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled cron.service) == "enabled" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198470,7 +198470,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_dhcpd6_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_dhcpd6_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled isc-dhcp-server6.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198478,7 +198478,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_dhcpd_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_dhcpd_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled isc-dhcp-server.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198486,7 +198486,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_dnsmasq_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_dnsmasq_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled dnsmasq.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198494,7 +198494,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_named_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_named_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled named.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198502,7 +198502,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_vsftpd_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_vsftpd_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled vsftpd.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198510,7 +198510,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_httpd_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_httpd_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled apache2.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198518,7 +198518,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_nginx_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_nginx_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled nginx.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198526,7 +198526,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_dovecot_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_dovecot_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled dovecot.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198534,7 +198534,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_slapd_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_slapd_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled slapd.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198542,7 +198542,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_rpcbind_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_rpcbind_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled rpcbind.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198550,7 +198550,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_nfs_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_nfs_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled nfs-server.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198558,7 +198558,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_rsyncd_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_rsyncd_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled rsync.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198566,7 +198566,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_xinetd_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_xinetd_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled xinetd.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198574,7 +198574,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_ypserv_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_ypserv_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled ypserv.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198582,7 +198582,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_tftp_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_tftp_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled tftpd-hpa.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198590,7 +198590,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_cups_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_cups_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled cups.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198598,7 +198598,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_squid_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_squid_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled squid.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198606,7 +198606,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_smb_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_smb_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled smbd.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198614,7 +198614,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_snmpd_disabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_snmpd_disabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled snmpd.service) == "masked" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198622,7 +198622,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_sshd_enabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_sshd_enabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled ssh.service) == "enabled" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198630,7 +198630,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_sssd_enabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_sssd_enabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled sssd.service) == "enabled" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198638,7 +198638,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_auditd_enabled.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-service_auditd_enabled.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/bin/bash
 if [[ $(systemctl is-enabled auditd.service) == "enabled" ]] ; then
     exit "$XCCDF_RESULT_PASS"
@@ -198646,7 +198646,7 @@ fi
 exit "$XCCDF_RESULT_FAIL"
 </sce:script>
   </ds:extended-component>
-  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-audit_rules_privileged_commands.sh" timestamp="2026-08-04T01:15:28">
+  <ds:extended-component id="scap_org.open-scap_ecomp_ubuntu2404-checks-sce-audit_rules_privileged_commands.sh" timestamp="2026-08-05T03:25:39">
     <sce:script>#!/usr/bin/env bash
 
 result=$XCCDF_RESULT_PASS
