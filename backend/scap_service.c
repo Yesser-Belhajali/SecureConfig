@@ -404,3 +404,162 @@ int list_rules_for_ds(const char *ds_path,struct rule_list **out_rules){
     *out_rules=rules;
     return count;
 }
+
+
+
+int selected_rules_for_profile(const char *ds_path,const char *profile_id,struct rule_list **out_rules){
+    if(out_rules==NULL){
+        return -1;
+    }
+
+    *out_rules=NULL;
+
+    oscap_init();
+
+
+    struct oscap_source *oscap_ds_source=oscap_source_new_from_file(ds_path);
+    if(oscap_ds_source==NULL){
+        oscap_cleanup();
+        return -1;
+    }
+
+    struct ds_sds_session *ds_sds_session=ds_sds_session_new_from_source(oscap_ds_source);
+    if(ds_sds_session==NULL){
+        oscap_source_free(oscap_ds_source);
+        oscap_cleanup();
+        return -1;
+    }
+    struct oscap_source *oscap_xccdf_source=ds_sds_session_select_checklist(ds_sds_session,NULL,NULL,NULL);
+    if(oscap_xccdf_source==NULL){
+        ds_sds_session_free(ds_sds_session);
+        oscap_source_free(oscap_ds_source);
+        oscap_cleanup();
+        return -1;
+    }
+
+    oscap_source_free(oscap_ds_source);
+
+    struct xccdf_benchmark *benchmark=xccdf_benchmark_import_source(oscap_xccdf_source);
+    if(benchmark==NULL){
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+    
+    struct xccdf_profile_iterator *profile_iterator=xccdf_benchmark_get_profiles(benchmark);
+    if(profile_iterator==NULL){
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    struct xccdf_profile *profile = NULL;
+    while (xccdf_profile_iterator_has_more(profile_iterator)) {
+        struct xccdf_profile *p = xccdf_profile_iterator_next(profile_iterator);
+        if (strcmp(xccdf_profile_get_id(p), profile_id) == 0) {
+            profile = p;
+            break;
+        }
+    }
+
+    xccdf_profile_iterator_free(profile_iterator);
+
+    if (profile == NULL) {
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    struct xccdf_policy_model *policy_model=xccdf_policy_model_new(benchmark);
+    if(policy_model==NULL){
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    struct xccdf_policy *policy=xccdf_policy_new(policy_model,profile);
+    if(policy==NULL){
+        xccdf_policy_model_free(policy_model);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    struct xccdf_select_iterator *select_iterator=xccdf_policy_get_selected_rules(policy);
+    if(select_iterator==NULL){
+        xccdf_policy_free(policy);
+        xccdf_policy_model_free(policy_model);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    struct rule_list *rules=NULL;
+    int count=0;
+
+    while(xccdf_select_iterator_has_more(select_iterator)){
+        struct xccdf_select *select=xccdf_select_iterator_next(select_iterator);
+
+        struct xccdf_item *item=xccdf_benchmark_get_item(benchmark,xccdf_select_get_item(select));
+        if(item==NULL || xccdf_item_get_type(item)!=XCCDF_RULE){
+            free_rule_info_list(rules,count);
+            xccdf_select_iterator_free(select_iterator);
+            xccdf_policy_free(policy);
+            xccdf_policy_model_free(policy_model);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+
+        struct xccdf_rule *rule=xccdf_item_to_rule(item);
+        const char *id=xccdf_rule_get_id(rule);
+        const char *title=get_rule_title(rule);
+        const char *description=get_rule_description(rule);
+        const char *rationale=get_rule_rationale(rule);
+        const char *severity=get_rule_severity(rule);
+
+        struct rule_list *tmp = realloc(rules, (count + 1) * sizeof(struct rule_list));
+        if (tmp == NULL) {
+            free_rule_info_list(rules, count);
+            xccdf_select_iterator_free(select_iterator);
+            xccdf_policy_free(policy);
+            xccdf_policy_model_free(policy_model);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+        rules = tmp;
+
+        rules[count].id = id ? strdup(id) : NULL;
+        rules[count].title = title ? strdup(title) : NULL;
+        rules[count].description = description ? strdup(description) : NULL;
+        rules[count].rationale = rationale ? strdup(rationale) : NULL;
+        rules[count].severity = severity ? strdup(severity) : NULL;
+
+        if((id !=NULL && rules[count].id==NULL) || (title!=NULL && rules[count].title==NULL) || (description!=NULL && rules[count].description==NULL) || (rationale!=NULL && rules[count].rationale==NULL) || (severity!=NULL && rules[count].severity==NULL)){
+            free(rules[count].id);
+            free(rules[count].title);
+            free(rules[count].description);
+            free(rules[count].rationale);
+            free(rules[count].severity);
+            free_rule_info_list(rules,count);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+        count++;
+    }
+
+    xccdf_select_iterator_free(select_iterator);
+    xccdf_policy_free(policy);
+    xccdf_policy_model_free(policy_model);
+    ds_sds_session_free(ds_sds_session);
+    oscap_cleanup();
+    
+    *out_rules=rules;
+    return count;
+}

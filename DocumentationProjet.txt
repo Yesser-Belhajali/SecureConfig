@@ -1120,6 +1120,12 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 -Maintenant je passe a l'affichage des regles selectionnees par une policy
 -J'ai un seul probleme en tete concernant la modification d'une policy,lorsque qu'un utilisateur charge un profil comme CIS server level 1 par exemple,et ajoute/rejette une recommendation,comment faire cela dans le backend,est ce que je cree une nouvelle policy ou simplement select_add je ne sais pas concretement
 
+-J'ai testé les deux approches parcourir le benchmark et verifier avec policy_is_item_selected et parcouris policy et recuperer depuis le benchmark,les deux donnent le meme résultat
+
+-J'ai réussi à ajouter au serveur HTTP la fonctionnalité d'afficher toutes les règles sélectionnées dans un profil
+
+-Maintenant je vais passer au frontend,le relier au backend et structurer son affichage
+
 
 -Yesser sob outil mta3 verif double free
 -Yesser 8odwa rigel kifech ki na5tarou profil y5arajli les regles mte3ou el kol selectionnées w ki na7i wa7da tetna7a mel policy mba3ed lel évaluation
