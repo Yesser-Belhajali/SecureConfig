@@ -10,3 +10,11 @@ export interface Rule {
   rationale: string;
   severity: string;
 }
+
+export interface SaveProfilePayload {
+  name: string;
+  benchmark_id: string;
+  profile_id?: string;
+  added: string[];
+  removed: string[];
+}

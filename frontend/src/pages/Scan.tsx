@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getProfiles } from '../features/scan/model/api'
 import type { Profile } from '../features/scan/model/types'
 
@@ -18,7 +18,8 @@ const distributions = [
   { id: 'opensuse', label: 'openSUSE', versions: [], accent: '#73BA25' },
   { id: 'openeuler', label: 'openEuler', versions: ['2203'], accent: '#1677FF' },
   { id: 'tencentos', label: 'TencentOS', versions: ['4'], accent: '#006EFF' },
-  { id: 'rhv', label: 'Red Hat Virtualization (RHV)', versions: ['4'], accent: '#EE0000' },
+  { id: 'rhcos', label: 'Red Hat Enterprise Linux CoreOS (RHCOS)', versions: ['4'], accent: '#EE0000' },
+  { id: 'openembedded', label: 'OpenEmbedded', versions: [], accent: '#5B8C5A' },
 ]
 
 type Screen = 'system' | 'profile'
@@ -55,7 +56,8 @@ const benchmarkIds: Record<string, string> = {
   'kylin:6 (Sec)': 'kylinsecserver6', 'kylin:10': 'kylinserver10',
   'almalinux:9': 'almalinux9',
   'fedora:': 'fedora', 'opensuse:': 'opensuse',
-  'openeuler:2203': 'openeuler2203', 'tencentos:4': 'tencentos4', 'rhv:4': 'rhv4',
+  'openeuler:2203': 'openeuler2203', 'tencentos:4': 'tencentos4',
+  'rhcos:4': 'rhcos4', 'openembedded:': 'openembedded',
 }
 
 function buildBenchmarkId(distributionId: string, version: string): string {
@@ -182,9 +184,9 @@ export function Scan() {
           <button type="button" className="min-h-12 rounded-lg px-5 py-3 font-semibold text-sm shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:shadow-none" style={{ backgroundColor: selectedProfile ? '#8B5CF6' : '#1A1F29', color: selectedProfile ? '#fff' : '#475569', boxShadow: selectedProfile ? '0 10px 20px rgba(109,40,217,.28)' : undefined }} disabled={!selectedProfile} onClick={() => navigate(`/benchmarks/${benchmarkId}/profiles/${selectedProfile}`, { state: { distributionId, version } })}>
             Choisir ce profil →
           </button>
-          <button type="button" className="min-h-12 rounded-lg border border-dashed border-[#A78BFA]/45 bg-[#8B5CF6]/5 px-5 py-3 text-sm font-semibold text-[#C4B5FD] transition-colors hover:bg-[#8B5CF6]/12" onClick={() => { /* La création de profil sera ajoutée ultérieurement. */ }}>
+          <Link to={`/benchmarks/${benchmarkId}/profiles/new`} className="min-h-12 rounded-lg border border-dashed border-[#A78BFA]/45 bg-[#8B5CF6]/5 px-5 py-3 text-center text-sm font-semibold text-[#C4B5FD] transition-colors hover:bg-[#8B5CF6]/12">
             Créer votre propre profil
-          </button>
+          </Link>
         </div>
       </section>}
 

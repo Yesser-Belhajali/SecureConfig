@@ -1,4 +1,4 @@
-import type { Profile, Rule } from "./types";
+import type { Profile, Rule, SaveProfilePayload } from "./types";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -28,13 +28,6 @@ export async function getSelectedRulesForProfile(
     `${API_BASE_URL}/benchmarks/${benchmarkId}/profiles/${profileId}/rules`
   );
   return handleResponse<Rule[]>(response);
-}
-
-export interface SaveProfilePayload {
-  name: string;
-  benchmark_id: string;
-  profile_id: string;
-  removed: string[];
 }
 
 export async function saveProfileSelection(payload: SaveProfilePayload): Promise<void> {

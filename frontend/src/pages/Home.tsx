@@ -30,7 +30,7 @@ const SlidersIcon = () => (
 )
 
 const stats = [
-  { label: 'Distributions Linux supportées', value: '15', mono: true },
+  { label: 'Distributions Linux supportées', value: '17', mono: true },
   { label: 'Règles disponibles', value: '4 200+', mono: true },
   { label: 'Référentiels pris en charge', value: 'CIS · DISA STIG · etc.', mono: false },
   { label: 'Durée moyenne d’un scan', value: '≈ 10 s', mono: true },

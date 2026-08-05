@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useProfileRules } from "../model/useProfileRules";
+import { useRuleSelection } from "../model/useRuleSelection";
 import { saveProfileSelection } from "../model/api";
 import type { Rule } from "../model/types";
 import RuleRow from "./RuleRow";
@@ -9,25 +9,20 @@ import "./rule-panel.css";
 
 interface ProfileRulesScreenProps {
   benchmarkId: string;
-  profileId: string;
+  profileId?: string; // absent -> mode création
 }
 
 export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScreenProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { profileRules, removedIds, loading, error, toggleRule } = useProfileRules(benchmarkId, profileId);
+  const isCreate = !profileId;
+  const { rules, selectedIds, loading, error, toggleRule, resetToBaseline, diff } =
+    useRuleSelection(benchmarkId, profileId);
 
   const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
   const [profileName, setProfileName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [severityFilter, setSeverityFilter] = useState("all");
-  const activeRulesCount = profileRules.length - removedIds.size;
-  const progress = profileRules.length ? Math.round((activeRulesCount / profileRules.length) * 100) : 0;
-  const visibleRules = profileRules.filter((rule) => severityFilter === "all" || rule.severity?.toLowerCase() === severityFilter);
-  const selectAll = () => profileRules.forEach((rule) => { if (removedIds.has(rule.id)) toggleRule(rule.id); });
-  const deselectAll = () => profileRules.forEach((rule) => { if (!removedIds.has(rule.id)) toggleRule(rule.id); });
-  const severities = ["all", "high", "medium", "low", "unknown"];
 
   if (loading) {
     return <div className="rules-loading" role="status" aria-label="Chargement des règles"><span /></div>;
@@ -38,11 +33,13 @@ export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScree
     setSaving(true);
     setSaveError(null);
     try {
+      const { added, removed } = diff();
       await saveProfileSelection({
         name: profileName,
         benchmark_id: benchmarkId,
         profile_id: profileId,
-        removed: Array.from(removedIds),
+        added,
+        removed,
       });
     } catch (err) {
       setSaveError((err as Error).message);
@@ -57,25 +54,18 @@ export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScree
         <span aria-hidden="true">←</span>
         Retour aux profils
       </button>
+
     <div className="rules-page">
-      <h2>Règles du profil</h2>
+      <h2>{isCreate ? "Créer un profil personnalisé" : "Règles du profil"}</h2>
 
       <div className="rules-body">
         <div className="rules-main">
           <div className="rule-list">
-          <section className="rules-controls" aria-label="Actions et filtres">
-            <div className="rules-progress"><div><strong>{activeRulesCount} / {profileRules.length}</strong><span> règles actives</span></div><div className="rules-progress-track"><span style={{ width: `${progress}%` }} /></div></div>
-            <div className="rules-bulk-actions"><button type="button" onClick={selectAll}>Tout sélectionner</button><button type="button" onClick={deselectAll}>Tout désélectionner</button></div>
-            <div className="rules-filters" role="group" aria-label="Filtrer par sévérité">
-              <span>Sévérité</span>
-              {severities.map((severity) => <button key={severity} type="button" className={severityFilter === severity ? "is-selected" : ""} onClick={() => setSeverityFilter(severity)}>{severity === "all" ? "Toutes" : severity}</button>)}
-            </div>
-          </section>
-            {visibleRules.map((rule) => (
+            {rules.map((rule) => (
               <RuleRow
                 key={rule.id}
                 rule={rule}
-                checked={!removedIds.has(rule.id)}
+                checked={selectedIds.has(rule.id)}
                 active={selectedRule?.id === rule.id}
                 onToggle={() => toggleRule(rule.id)}
                 onSelect={() => setSelectedRule((current) => (current?.id === rule.id ? null : rule))}
@@ -83,7 +73,7 @@ export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScree
             ))}
           </div>
 
-          <p>{removedIds.size} règle(s) retirée(s) par rapport au profil d'origine</p>
+          <p>{selectedIds.size} règle(s) sélectionnée(s)</p>
 
           <input
             type="text"
@@ -93,7 +83,11 @@ export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScree
           />
 
           <button onClick={handleSave} disabled={saving || !profileName}>
-            {saving ? "Enregistrement..." : "Valider"}
+            {saving ? "Enregistrement..." : isCreate ? "Créer le profil" : "Valider"}
+          </button>
+
+          <button onClick={resetToBaseline} disabled={saving}>
+            Réinitialiser
           </button>
 
           {saveError && <p>Erreur lors de l'enregistrement : {saveError}</p>}
