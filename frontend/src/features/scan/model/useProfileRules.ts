@@ -8,7 +8,6 @@ interface UseProfileRulesResult {
   loading: boolean;
   error: string | null;
   toggleRule: (ruleId: string) => void;
-  resetToBaseline: () => void;
 }
 
 export function useProfileRules(
@@ -60,9 +59,5 @@ export function useProfileRules(
     });
   }, []);
 
-  const resetToBaseline = useCallback(() => {
-    loadData();
-  }, [loadData]);
-
-  return { profileRules, removedIds, loading, error, toggleRule, resetToBaseline };
+  return { profileRules, removedIds, loading, error, toggleRule };
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useProfileRules } from "../model/useProfileRules";
 import { saveProfileSelection } from "../model/api";
 import type { Rule } from "../model/types";
@@ -12,8 +13,9 @@ interface ProfileRulesScreenProps {
 }
 
 export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScreenProps) {
-  const { profileRules, removedIds, loading, error, toggleRule, resetToBaseline } =
-    useProfileRules(benchmarkId, profileId);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { profileRules, removedIds, loading, error, toggleRule } = useProfileRules(benchmarkId, profileId);
 
   const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
   const [profileName, setProfileName] = useState("");
@@ -27,7 +29,9 @@ export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScree
   const deselectAll = () => profileRules.forEach((rule) => { if (!removedIds.has(rule.id)) toggleRule(rule.id); });
   const severities = ["all", "high", "medium", "low", "unknown"];
 
-  if (loading) return <p>Chargement des règles du profil...</p>;
+  if (loading) {
+    return <div className="rules-loading" role="status" aria-label="Chargement des règles"><span /></div>;
+  }
   if (error) return <p>Erreur : {error}</p>;
 
   const handleSave = async () => {
@@ -48,6 +52,11 @@ export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScree
   };
 
   return (
+    <>
+      <button type="button" className="rules-back-button" onClick={() => navigate("/scan", { state: { screen: "profile", distributionId: location.state?.distributionId, version: location.state?.version } })}>
+        <span aria-hidden="true">←</span>
+        Retour aux profils
+      </button>
     <div className="rules-page">
       <h2>Règles du profil</h2>
 
@@ -56,7 +65,7 @@ export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScree
           <div className="rule-list">
           <section className="rules-controls" aria-label="Actions et filtres">
             <div className="rules-progress"><div><strong>{activeRulesCount} / {profileRules.length}</strong><span> règles actives</span></div><div className="rules-progress-track"><span style={{ width: `${progress}%` }} /></div></div>
-            <div className="rules-bulk-actions"><button type="button" onClick={selectAll}>Tout sélectionner</button><button type="button" onClick={deselectAll}>Tout désélectionner</button><button type="button" onClick={resetToBaseline}>Réinitialiser</button></div>
+            <div className="rules-bulk-actions"><button type="button" onClick={selectAll}>Tout sélectionner</button><button type="button" onClick={deselectAll}>Tout désélectionner</button></div>
             <div className="rules-filters" role="group" aria-label="Filtrer par sévérité">
               <span>Sévérité</span>
               {severities.map((severity) => <button key={severity} type="button" className={severityFilter === severity ? "is-selected" : ""} onClick={() => setSeverityFilter(severity)}>{severity === "all" ? "Toutes" : severity}</button>)}
@@ -87,15 +96,12 @@ export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScree
             {saving ? "Enregistrement..." : "Valider"}
           </button>
 
-          <button onClick={resetToBaseline} disabled={saving}>
-            Réinitialiser
-          </button>
-
           {saveError && <p>Erreur lors de l'enregistrement : {saveError}</p>}
         </div>
 
         <RuleDetailPanel rule={selectedRule} onClose={() => setSelectedRule(null)} />
       </div>
     </div>
+    </>
   );
 }

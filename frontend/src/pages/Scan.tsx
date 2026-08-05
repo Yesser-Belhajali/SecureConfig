@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { getProfiles } from '../features/scan/model/api'
 import type { Profile } from '../features/scan/model/types'
 
@@ -22,6 +22,11 @@ const distributions = [
 ]
 
 type Screen = 'system' | 'profile'
+type ScanLocationState = {
+  screen?: Screen
+  distributionId?: string
+  version?: string
+}
 
 function DistributionVisual({ name, accent }: { name: string; accent: string }) {
   const initials = name.replace(/[^A-Z]/g, '').slice(0, 2) || name.slice(0, 2).toUpperCase()
@@ -59,9 +64,11 @@ function buildBenchmarkId(distributionId: string, version: string): string {
 
 export function Scan() {
   const navigate = useNavigate()
-  const [screen, setScreen] = useState<Screen>('system')
-  const [distributionId, setDistributionId] = useState('')
-  const [version, setVersion] = useState('')
+  const location = useLocation()
+  const navigationState = location.state as ScanLocationState | null
+  const [screen, setScreen] = useState<Screen>(navigationState?.screen === 'profile' ? 'profile' : 'system')
+  const [distributionId, setDistributionId] = useState(navigationState?.distributionId ?? '')
+  const [version, setVersion] = useState(navigationState?.version ?? '')
   const [selectedProfile, setSelectedProfile] = useState('')
 
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -149,8 +156,11 @@ export function Scan() {
         </div>
       </section>}
 
-      {screen === 'profile' && <section>
-        <button type="button" className="text-sm text-[#A78BFA] mb-8" onClick={() => setScreen('system')}>← Modifier le système</button>
+      {screen === 'profile' && <section className="pt-2">
+        <button type="button" className="group inline-flex items-center gap-3 rounded-xl border border-[#A78BFA]/45 bg-[#8B5CF6]/10 px-5 py-3 text-base font-semibold text-[#DDD6FE] shadow-[0_10px_28px_rgba(76,29,149,.18)] transition-all hover:-translate-y-0.5 hover:border-[#C4B5FD] hover:bg-[#8B5CF6]/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4B5FD] mb-10 ml-2" onClick={() => setScreen('system')}>
+          <span className="text-xl leading-none transition-transform group-hover:-translate-x-1" aria-hidden="true">←</span>
+          Modifier le système
+        </button>
         <h2 className="text-2xl font-bold text-[#E2E8F0] mb-2">Sélectionner un profil</h2>
         <p className="text-sm text-[#64748B] mb-6">Profil appliqué à {selectedDistribution?.label} {version}.</p>
 
@@ -168,18 +178,20 @@ export function Scan() {
           </div>
         )}
 
-        <button
-          type="button"
-          className="w-full py-3 rounded-lg font-medium text-sm"
-          style={{ backgroundColor: selectedProfile ? '#8B5CF6' : '#1A1F29', color: selectedProfile ? '#fff' : '#475569' }}
-          disabled={!selectedProfile}
-          onClick={() => navigate(`/benchmarks/${benchmarkId}/profiles/${selectedProfile}`)}
-        >
-          Voir et personnaliser les règles →
-        </button>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button type="button" className="min-h-12 rounded-lg px-5 py-3 font-semibold text-sm shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:shadow-none" style={{ backgroundColor: selectedProfile ? '#8B5CF6' : '#1A1F29', color: selectedProfile ? '#fff' : '#475569', boxShadow: selectedProfile ? '0 10px 20px rgba(109,40,217,.28)' : undefined }} disabled={!selectedProfile} onClick={() => navigate(`/benchmarks/${benchmarkId}/profiles/${selectedProfile}`, { state: { distributionId, version } })}>
+            Choisir ce profil →
+          </button>
+          <button type="button" className="min-h-12 rounded-lg border border-dashed border-[#A78BFA]/45 bg-[#8B5CF6]/5 px-5 py-3 text-sm font-semibold text-[#C4B5FD] transition-colors hover:bg-[#8B5CF6]/12" onClick={() => { /* La création de profil sera ajoutée ultérieurement. */ }}>
+            Créer votre propre profil
+          </button>
+        </div>
       </section>}
 
-      <p className="mt-10 text-xs text-[#475569] text-center">Aucune donnée ne quitte votre machine.</p>
+      <p className="mt-12 rounded-xl border border-[#A78BFA]/25 bg-gradient-to-r from-[#8B5CF6]/12 via-[#171426] to-[#8B5CF6]/8 px-6 py-4 text-center text-sm font-medium tracking-wide text-[#C4B5FD] shadow-[0_10px_30px_rgba(76,29,149,.12)]">
+        <span className="mr-2 text-base" aria-hidden="true">⌁</span>
+        Aucune donnée ne quitte votre machine.
+      </p>
     </div>
   )
 }
