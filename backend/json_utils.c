@@ -38,6 +38,7 @@ char *rules_to_json(struct rule_list *rules, int count) {
         cJSON_AddStringToObject(item, "description", rules[i].description ? rules[i].description : "");
         cJSON_AddStringToObject(item, "rationale", rules[i].rationale ? rules[i].rationale : "");
         cJSON_AddStringToObject(item, "severity", rules[i].severity ? rules[i].severity : "");
+        cJSON_AddBoolToObject(item, "selected", rules[i].selected);
 
         cJSON_AddItemToArray(root, item);
     }

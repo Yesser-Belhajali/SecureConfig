@@ -9,6 +9,8 @@ export interface Rule {
   description: string;
   rationale: string;
   severity: string;
+  selected?: boolean; // présent seulement quand la donnée vient de /rules/all
+
 }
 
 export interface SaveProfilePayload {

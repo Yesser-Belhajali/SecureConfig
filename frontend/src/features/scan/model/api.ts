@@ -30,6 +30,16 @@ export async function getSelectedRulesForProfile(
   return handleResponse<Rule[]>(response);
 }
 
+export async function getAllRulesWithSelection(
+  benchmarkId: string,
+  profileId: string
+): Promise<Rule[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/benchmarks/${benchmarkId}/profiles/${profileId}/rules/all`
+  );
+  return handleResponse<Rule[]>(response);
+}
+
 export async function saveProfileSelection(payload: SaveProfilePayload): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/profiles/custom`, {
     method: "POST",

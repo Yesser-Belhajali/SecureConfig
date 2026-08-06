@@ -58,6 +58,65 @@
   gap: 0.5rem;
 }
 
+.rules-controls {
+  display: grid;
+  gap: .8rem;
+  margin: 0 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, .14);
+  border-radius: 12px;
+  background: #11151d;
+}
+
+.rules-progress {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  color: #94a3b8;
+  font-size: .82rem;
+}
+
+.rules-progress strong { color: #e2e8f0; }
+.rules-progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: #252b37; }
+.rules-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8b5cf6, #c4b5fd);
+  transition: width .2s ease;
+}
+
+.rules-bulk-actions,
+.rules-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem;
+}
+
+.rules-bulk-actions button,
+.rules-filters button {
+  border: 1px solid rgba(148, 163, 184, .22);
+  border-radius: 7px;
+  padding: .42rem .65rem;
+  background: #181d27;
+  color: #cbd5e1;
+  cursor: pointer;
+  font: 500 .75rem Inter, sans-serif;
+}
+
+.rules-bulk-actions button:hover:not(:disabled),
+.rules-filters button:hover,
+.rules-filters button.is-selected {
+  border-color: #a78bfa;
+  background: rgba(139, 92, 246, .16);
+  color: #e9ddff;
+}
+
+.rules-bulk-actions button:disabled { cursor: not-allowed; opacity: .5; }
+.rules-filters > span { margin-right: .2rem; color: #94a3b8; font-size: .75rem; }
+
 .rule-row {
   display: flex;
   align-items: center;

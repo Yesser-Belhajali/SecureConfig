@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getAllRules, getSelectedRulesForProfile } from "./api";
+import { getAllRules, getAllRulesWithSelection, getSelectedRulesForProfile } from "./api";
 import type { Rule } from "./types";
 
 interface UseRuleSelectionResult {
@@ -8,17 +8,20 @@ interface UseRuleSelectionResult {
   loading: boolean;
   error: string | null;
   toggleRule: (ruleId: string) => void;
+  selectAll: () => void;
+  deselectAll: () => void;
   resetToBaseline: () => void;
   diff: () => { added: string[]; removed: string[] };
 }
 
-/**
- * profileId fourni  -> mode "profil" : charge les règles du profil, toutes pré-cochées
- * profileId absent  -> mode "création" : charge toutes les règles du benchmark, rien coché
- */
+export type SelectionMode =
+  | { kind: "view-profile"; profileId: string } // retrait uniquement, ne charge que les règles du profil
+  | { kind: "edit-profile"; profileId: string } // ajout + retrait, charge tout le benchmark avec l'état du profil
+  | { kind: "create-from-scratch" }; // charge tout le benchmark, rien pré-coché
+
 export function useRuleSelection(
   benchmarkId: string,
-  profileId?: string
+  mode: SelectionMode
 ): UseRuleSelectionResult {
   const [rules, setRules] = useState<Rule[]>([]);
   const [originalIds, setOriginalIds] = useState<Set<string>>(new Set());
@@ -26,23 +29,38 @@ export function useRuleSelection(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // extrait à part pour avoir une dépendance stable et lisible dans useCallback
+  const profileId = mode.kind !== "create-from-scratch" ? mode.profileId : undefined;
+
   const loadData = useCallback(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    const fetchRules = profileId
-      ? getSelectedRulesForProfile(benchmarkId, profileId)
-      : getAllRules(benchmarkId);
+    let fetchRules: Promise<Rule[]>;
+    if (mode.kind === "view-profile") {
+      fetchRules = getSelectedRulesForProfile(benchmarkId, mode.profileId);
+    } else if (mode.kind === "edit-profile") {
+      fetchRules = getAllRulesWithSelection(benchmarkId, mode.profileId);
+    } else {
+      fetchRules = getAllRules(benchmarkId);
+    }
 
     fetchRules
       .then((fetchedRules) => {
         if (cancelled) return;
         setRules(fetchedRules);
 
-        const initialIds = profileId
-          ? new Set(fetchedRules.map((r) => r.id))
-          : new Set<string>();
+        let initialIds: Set<string>;
+        if (mode.kind === "view-profile") {
+          // cet endpoint ne renvoie déjà que les règles sélectionnées
+          initialIds = new Set(fetchedRules.map((r) => r.id));
+        } else if (mode.kind === "edit-profile") {
+          // toutes les règles sont chargées, seule une partie est cochée au départ
+          initialIds = new Set(fetchedRules.filter((r) => r.selected).map((r) => r.id));
+        } else {
+          initialIds = new Set();
+        }
 
         setOriginalIds(initialIds);
         setSelectedIds(initialIds);
@@ -57,7 +75,8 @@ export function useRuleSelection(
     return () => {
       cancelled = true;
     };
-  }, [benchmarkId, profileId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [benchmarkId, mode.kind, profileId]);
 
   useEffect(() => {
     const cleanup = loadData();
@@ -74,6 +93,14 @@ export function useRuleSelection(
       }
       return next;
     });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(rules.map((rule) => rule.id)));
+  }, [rules]);
+
+  const deselectAll = useCallback(() => {
+    setSelectedIds(new Set());
   }, []);
 
   const resetToBaseline = useCallback(() => {
@@ -94,5 +121,15 @@ export function useRuleSelection(
     return { added, removed };
   }, [selectedIds, originalIds]);
 
-  return { rules, selectedIds, loading, error, toggleRule, resetToBaseline, diff };
+  return {
+    rules,
+    selectedIds,
+    loading,
+    error,
+    toggleRule,
+    selectAll,
+    deselectAll,
+    resetToBaseline,
+    diff,
+  };
 }

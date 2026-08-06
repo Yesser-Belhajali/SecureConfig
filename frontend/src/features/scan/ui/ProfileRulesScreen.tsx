@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import type { SelectionMode } from "../model/useRuleSelection";
 import { useRuleSelection } from "../model/useRuleSelection";
 import { saveProfileSelection } from "../model/api";
 import type { Rule } from "../model/types";
@@ -9,25 +10,47 @@ import "./rule-panel.css";
 
 interface ProfileRulesScreenProps {
   benchmarkId: string;
-  profileId?: string; // absent -> mode création
+  mode: SelectionMode;
 }
 
-export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScreenProps) {
+export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const isCreate = !profileId;
-  const { rules, selectedIds, loading, error, toggleRule, resetToBaseline, diff } =
-    useRuleSelection(benchmarkId, profileId);
+
+  const isReadOnlyRemoveOnly = mode.kind === "view-profile";
+  const isCreate = mode.kind === "create-from-scratch";
+  const profileId = mode.kind !== "create-from-scratch" ? mode.profileId : undefined;
+
+  const {
+    rules,
+    selectedIds,
+    loading,
+    error,
+    toggleRule,
+    selectAll,
+    deselectAll,
+    resetToBaseline,
+    diff,
+  } =
+    useRuleSelection(benchmarkId, mode);
 
   const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
   const [profileName, setProfileName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [severityFilter, setSeverityFilter] = useState("all");
 
   if (loading) {
     return <div className="rules-loading" role="status" aria-label="Chargement des règles"><span /></div>;
   }
   if (error) return <p>Erreur : {error}</p>;
+
+  const activeRulesCount = selectedIds.size;
+  const progress = rules.length ? Math.round((activeRulesCount / rules.length) * 100) : 0;
+  const visibleRules = rules.filter(
+    (rule) => severityFilter === "all" || rule.severity?.toLowerCase() === severityFilter
+  );
+  const severities = ["all", "high", "medium", "low", "unknown"];
 
   const handleSave = async () => {
     setSaving(true);
@@ -60,8 +83,44 @@ export function ProfileRulesScreen({ benchmarkId, profileId }: ProfileRulesScree
 
       <div className="rules-body">
         <div className="rules-main">
+          <section className="rules-controls" aria-label="Actions et filtres des règles">
+            <div className="rules-progress">
+              <div>
+                <strong>{activeRulesCount} / {rules.length}</strong>
+                <span> règles sélectionnées</span>
+              </div>
+              <div className="rules-progress-track" aria-hidden="true">
+                <span style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+
+            <div className="rules-bulk-actions">
+              {!isReadOnlyRemoveOnly && (
+                <button type="button" onClick={selectAll} disabled={!rules.length || saving}>
+                  Tout sélectionner
+                </button>
+              )}
+              <button type="button" onClick={deselectAll} disabled={!selectedIds.size || saving}>Tout désélectionner</button>
+              <button type="button" onClick={resetToBaseline} disabled={saving}>Réinitialiser</button>
+            </div>
+
+            <div className="rules-filters" role="group" aria-label="Filtrer par sévérité">
+              <span>Sévérité</span>
+              {severities.map((severity) => (
+                <button
+                  key={severity}
+                  type="button"
+                  className={severityFilter === severity ? "is-selected" : ""}
+                  onClick={() => setSeverityFilter(severity)}
+                >
+                  {severity === "all" ? "Toutes" : severity}
+                </button>
+              ))}
+            </div>
+          </section>
+
           <div className="rule-list">
-            {rules.map((rule) => (
+            {visibleRules.map((rule) => (
               <RuleRow
                 key={rule.id}
                 rule={rule}

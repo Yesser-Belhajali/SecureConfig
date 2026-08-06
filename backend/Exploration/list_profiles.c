@@ -107,16 +107,7 @@ int main(int argc,char **argv){
         profile_list=tmp;
 
         profile_list[count]=profile;
-        if(profile_list[count]==NULL){
-            printf("Erreur allocation mémoire\n");
-            xccdf_profile_iterator_free(profile_iterator);
-            free(profile_list);
-            xccdf_benchmark_free(benchmark);
-            ds_sds_session_free(ds_sds_session);
-            oscap_source_free(oscap_ds_source);
-            oscap_cleanup();
-            return 1;
-        }
+        
         printf("%d) ID : %s\nTitre : %s\n",count+1,xccdf_profile_get_id(profile_list[count]),get_profile_title(profile_list[count]));
         count++;
     }

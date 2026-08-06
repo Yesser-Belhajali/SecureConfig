@@ -1134,6 +1134,22 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 -J'ai réalisé des améliorations au front,maintenant je dois passer a l'affichage de toutes les regles d'un benchmark
 
 
+--------------------------------------------------------------------------------------------7/08/2026-------------------------------------------------------------------------------
+
+-Je vais maintenant creer le fichier C qui prend un benchmark+un profil puis retourne toutes les regles du benchmark avec celles selectionnees par le profil cochees
+-Je teste avec la CLI avant pour ne pas foncer sur le serveur HTTP sans que je sois sure que tout fonctionne convenablement
+
+-L'application peut maintenant m'afficher les regles d'un profil ou je peux decocher des regles,ou me permettre de modifer la sélection de regles d'un profil ou je peux selectionner ou retirer des regles ou m'afficher toutes les regles du benchmark pour creer mon propre profil,mon backend expose 3 endpoints pour le moment,je vais ajouter la possibilité de scan et la possibilité de créer mon propre profil et le sauvegarder dans un fichier de tailoring.
+
+-J'ai meme étudié le fonctionnement de react et compris la philosophie de model et UI(le premier gere la logique métier et le deuxieme gere la logique d'affichage)
+
+
+
+-Yesser rigel el CSS fama 7ajet zeyda el AI nse bich yfassa5ha
+-Yesser rigel mochkol mta3 Scan.tsx
+-Yesser tout selectionner walla tout deselectionner rzayna chwaya fi creer mon propre profil
+-Yesser akel boutons de retour 9a3din yehelkou fel application bara sala7hom
+-Yesser ki tod5ol li creer votre propre profil w tarja3 lil liste des profils tal9aha vide lezem el retour ya ema y3awed yab3ath requete ya ema yet5abew fel cache les profils
 -Yesser rahou reinitialiser fi afficher regles profils t3awed ta3mel requete zid choufha la7keya
 -Yesser verifi el contenu mta3 opensuse el profil ma5arrajli ken 3 regles
 -Yesser sob outil mta3 verif double free

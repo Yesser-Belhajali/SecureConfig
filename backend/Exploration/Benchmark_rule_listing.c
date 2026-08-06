@@ -13,6 +13,15 @@ struct rule_node{
     struct rule_node *next;
 };
 
+
+void free_rule_list(struct rule_node *head){
+    while(head!=NULL){
+        struct rule_node *new_rule_node=head;
+        head=head->next;
+        free(new_rule_node);
+    }
+}
+
 struct rule_node *push_front(struct rule_node *head,struct xccdf_rule *rule,bool *error){
     struct rule_node *new_rule_node=malloc(sizeof(struct rule_node));
     if(new_rule_node==NULL){
@@ -23,14 +32,6 @@ struct rule_node *push_front(struct rule_node *head,struct xccdf_rule *rule,bool
     new_rule_node->rule=rule;
     new_rule_node->next=head;
     return new_rule_node;
-}
-
-void free_rule_list(struct rule_node *head){
-    while(head!=NULL){
-        struct rule_node *new_rule_node=head;
-        head=head->next;
-        free(new_rule_node);
-    }
 }
 
 struct rule_node *collect_rules_recursive(struct xccdf_item *benchmark_item,struct rule_node *head,bool *error){
