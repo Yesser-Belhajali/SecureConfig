@@ -36,6 +36,17 @@ export function ScanScreen() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-16">
+    {screen === "profile" && (
+      <button
+        type="button"
+        className="group inline-flex items-center gap-3 rounded-xl border border-[#A78BFA]/45 bg-[#8B5CF6]/10 px-5 py-3 text-base font-semibold text-[#DDD6FE] shadow-[0_10px_28px_rgba(76,29,149,.18)] transition-all hover:-translate-y-0.5 hover:border-[#C4B5FD] hover:bg-[#8B5CF6]/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4B5FD] mb-10 -ml-2"
+        onClick={goToSystemScreen}
+      >
+        <span className="text-xl leading-none transition-transform group-hover:-translate-x-1" aria-hidden="true">←</span>
+        Modifier le système
+      </button>
+    )}
+
       <header className="mb-16"><h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-[#E2E8F0]">Choisissez votre distribution</h1></header>
 
       {screen === "system" && <section>
@@ -73,10 +84,6 @@ export function ScanScreen() {
       </section>}
 
       {screen === "profile" && <section className="pt-2">
-        <button type="button" className="group inline-flex items-center gap-3 rounded-xl border border-[#A78BFA]/45 bg-[#8B5CF6]/10 px-5 py-3 text-base font-semibold text-[#DDD6FE] shadow-[0_10px_28px_rgba(76,29,149,.18)] transition-all hover:-translate-y-0.5 hover:border-[#C4B5FD] hover:bg-[#8B5CF6]/20 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C4B5FD] mb-10 ml-2" onClick={goToSystemScreen}>
-          <span className="text-xl leading-none transition-transform group-hover:-translate-x-1" aria-hidden="true">←</span>
-          Modifier le système
-        </button>
         <h2 className="text-2xl font-bold text-[#E2E8F0] mb-2">Sélectionner un profil</h2>
         <p className="text-sm text-[#64748B] mb-6">Profil appliqué à {selectedDistribution?.label} {version}.</p>
 

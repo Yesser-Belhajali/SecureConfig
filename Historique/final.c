@@ -123,27 +123,30 @@ int main(int argc, char** argv){
         return 1;
     }
 
+    free(profile_list);
+
     struct xccdf_policy *policy=xccdf_session_get_xccdf_policy(session);
 
     xccdf_policy_model_register_start_callback(policy_model, mon_callback_start, policy);
     xccdf_policy_model_register_output_callback(policy_model, mon_callback_output, NULL);
+
+
     
     
     if (xccdf_session_evaluate(session) != 0) {
         printf("Échec de l'évaluation\n");
-        free(profile_list);
         xccdf_session_free(session);
         oscap_cleanup();
         return 1;
     }
 
+    xccdf_policy_evaluate(policy);
     
     printf("Evaluation terminée avec succes!!!!!!YYAAAAYYY\n");
 
     printf("Votre score de conformité est = %f%%\n",xccdf_session_get_base_score(session));
 
 
-    free(profile_list);
     xccdf_session_free(session);
     oscap_cleanup();
     return 0;
@@ -251,6 +254,6 @@ int mon_callback_output(struct xccdf_rule_result *rule_result, void *usr) {
         break;
     }
 
-    printf("Time : %s\nSeverity : %s\nStatus :  %s\n\n",rule_result_time,rule_result_severity ,rule_result_type);
+    printf("Result_ID : %s\nTime : %s\nSeverity : %s\nStatus :  %s\n\n",xccdf_rule_result_get_idref(rule_result),rule_result_time,rule_result_severity ,rule_result_type);
     return 0;
 }

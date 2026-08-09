@@ -1134,7 +1134,7 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 -J'ai réalisé des améliorations au front,maintenant je dois passer a l'affichage de toutes les regles d'un benchmark
 
 
---------------------------------------------------------------------------------------------7/08/2026-------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------6/08/2026-------------------------------------------------------------------------------
 
 -Je vais maintenant creer le fichier C qui prend un benchmark+un profil puis retourne toutes les regles du benchmark avec celles selectionnees par le profil cochees
 -Je teste avec la CLI avant pour ne pas foncer sur le serveur HTTP sans que je sois sure que tout fonctionne convenablement
@@ -1143,8 +1143,61 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -J'ai meme étudié le fonctionnement de react et compris la philosophie de model et UI(le premier gere la logique métier et le deuxieme gere la logique d'affichage)
 
+-LOG4
 
 
+--------------------------------------------------------------------------------------------7/08/2026-------------------------------------------------------------------------------
+
+-J'ai essayé de tester les callbacks une autre fois avant d'attaquer le tailoring et tout alors j'ai créé un petit prototype n'utilisant que policy et policy_model,mais toutes les regles reviennent avec not_applicable,apres des tests il s'est avéré que policy_model posséde les listes qui stockent les moteurs oval et cpe meme si on a policy_model mais nous n'avons pas effectué xccdf_session_load(session) d'ou la policy model n'a pas rempli ces listes donc pas de moteurs cpe ni oval
+-Si on n'effecture pas load_oval et load_cpe les message not_applicable et not_checked arrivent
+
+-Est ce qu'on peut faire tailoring d'un fichier de tailoring
+
+-Je suis en train d'étudier le tailoring des profils de sécurité,un fichier de tailoring est un fichier qui vient modifier un profil de sécurité pour changer les configurations établies au sein de ce profil
+
+
+--------------------------------------------------------------------------------------------8/08/2026-------------------------------------------------------------------------------
+
+-Je vais lister ici toutes les fonctions nécessaires pour le tailoring que je trouve dans l'API
+
+-Yesser a9ra xccdf_tailoring_resolve
+
+-Jusqu'a maintenant ce que je sais est le suivant:
+-Alors voici un recap de ce que je sais maintenant.
+-Tailoring est le fait de modifier un profil de sécurité,par exemple on prend le profil CIS_Server_level_1 et on lui ajoute de nouvelles recommendations,on supprime une ou on peut meme modifier la valeur de cette recommendation.
+-Openscap est le moteur qui gere tout cela,donc naturellement il implémente cela a travers la structure xccdf_tailoring,on peut creer le tailoring et lui ajouter des profils,soit comme une extension d'un autre profil soit simplement un nouveau profil qui n'étend rien,le tailoring doit referencer le benchmark aussi en fin de compte car ce dernier posséde réellement les regles pas simplement leur ID mais leurs tests et tout.
+-Apres une lecture du code d'openscap,le moteur peut resoudre un héritage multiple.Donc je peux creer un profil soit from scratch soit comme extension d'un autre.
+-Pour garder l'integrite du DS de SSG je vais creer un fichier externe pour le tailoring et pas inclure le tailoring dans le DS,et tout les profils crees a partir du benchmark X vont etre cree dans un seul fichier de tailoring dédié a ce benchmark X,pour implémenter cela je vais normalement créer deux dossiers,le premier appelé benchmarks qui va contenir tous les benchmarks et le deuxieme appelé tailoring va contenir tous les fichiers de tailoring,je vais implémenter le backend d'une facon a verifier dans le dossier de tailoring s'il existe un fichier de tailoring par exemple pour ubuntu2404 si oui on ouvre le fichier et on ajoute le nouveau profil sinon on cree le fichier de tailoring et on lui ajouter le profil.
+
+-J'ai réussi a creer un fichier de tailoring avec son propre profil qui étend CIS_server_level_1.
+
+-Mon seul souci maintenant est la mémoire,comme toutes mes requetes sont stateless,je veux garder le meme esprit partout,ou chaque le backend ne garde aucun etat donc chaque requete doit transportet tout dont le backend a besoin,d'ou je dois minimiser le boulot de ce dernier,pour cela je veux éviter de créer une session pour chaque requete donc je veux tester quelle est la structure la plus basse qui possede tout dont j'ai besoin pour exécuter cela.
+
+-Pour le moment j'ai testé le profil,et ce dernier ne posséde que ces propres selects,il ne résout pas l'héritage de l'extension,je vais maintenant me passer par policy et la tester.si elle marche tout est résolu,sinon je passerai par policy_model et l'ajout du fichier de tailoring a la policy_model
+
+-Pour le moment l'approche de simplement utiliser policy fonctionne tres bien,je ne sais pas comment mais elle fonctionne
+
+-Correcion!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+-L'approhe que créer la policy va résoudre l'héritage ne fonctionne que si le profil de extends appartient au benchmark mais s'il appartient au meme fichier de tailoring cela ne fonctionnera que si on appelle xccdf_policy_model_set_tailoring avant la création de la policy
+
+-L'héritage multiple fonctionne très bien meme avec un héritage d'une chaine de longueur 4 il fonctionne splendidement!!!!!!!!!!!!!
+
+-Maintenant je dois vérifier si je peux contourner xccdf_policy_model_set_tailoring ou non
+
+
+--------------------------------------------------------------------------------------------9/08/2026-------------------------------------------------------------------------------
+
+-J'ai commencé à mettre à jour les fonctions implémentées dans le serveur HTTP,j'ai commencé par les tests en CLI.
+
+-Test en CLI pour lister les profils du benchmark+Tailoring fonctionnent!!!!!
+
+-Je peux vérifier les fuites mémoires avec un outil que claude a proposé
+
+
+
+
+-Yesser tfa9ed ken rule wel res mte3ha 3andhom nafs el ID walla le(OUI rule et rule_result ont le meme ID)
 -Yesser rigel el CSS fama 7ajet zeyda el AI nse bich yfassa5ha
 -Yesser rigel mochkol mta3 Scan.tsx
 -Yesser tout selectionner walla tout deselectionner rzayna chwaya fi creer mon propre profil
