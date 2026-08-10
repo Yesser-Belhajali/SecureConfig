@@ -1,6 +1,13 @@
 export interface Profile {
   id: string;
   title: string;
+  description?: string;
+  extends?: string;
+}
+
+export interface ProfilesResponse {
+  profiles: Profile[];
+  tailoring_profiles: Profile[];
 }
 
 export interface Rule {

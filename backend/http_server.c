@@ -9,23 +9,23 @@
 
 
 static int extract_benchmark_id(const char *url, char *out_id, size_t out_size) {
-    // Vérifie explicitement la présence de "/profiles" à la fin de la chaîne
-    if (strstr(url, "/profiles") == NULL) {
+    int pos = 0;
+    if (sscanf(url, "/benchmarks/%63[^/]/profiles%n", out_id, &pos) != 1) {
         return 0;
     }
-    if (sscanf(url, "/benchmarks/%63[^/]/profiles", out_id) != 1) {
-        return 0;
+    if (url[pos] != '\0') {
+        return 0; // ex: laisse passer /profiles/{id}/... vers leurs propres handlers
     }
     return 1;
 }
 
 
 static int extract_rules_request(const char *url, char *out_id, size_t out_size) {
-    // Vérifie explicitement la présence de "/rules" à la fin de la chaîne
-    if (strstr(url, "/rules") == NULL) {
+    int pos = 0;
+    if (sscanf(url, "/benchmarks/%63[^/]/rules%n", out_id, &pos) != 1) {
         return 0;
     }
-    if (sscanf(url, "/benchmarks/%63[^/]/rules", out_id) != 1) {
+    if (url[pos] != '\0') {
         return 0;
     }
     return 1;
@@ -63,8 +63,8 @@ static int extract_profile_rules_request(const char *url, char *out_benchmark_id
 }
 
 static int resolve_ds_path(const char *benchmark_id, char *out_path, size_t out_size) {
-    // convention : data/ssg-<id>-ds.xml
-    int n = snprintf(out_path, out_size, "../data/ssg-%s-ds.xml", benchmark_id);
+    // convention : data/<id>/ssg-<id>-ds.xml
+    int n = snprintf(out_path, out_size, "../data/%s/ssg-%s-ds.xml", benchmark_id, benchmark_id);
     if (n < 0 || (size_t)n >= out_size) {
         return 0; // troncature, id trop long
     }
@@ -109,80 +109,65 @@ static enum MHD_Result handle_request(void *cls,
     }
     // IMPORTANT : cette route doit être testée avant extract_profile_rules_request
     else if (strcmp(method, "GET") == 0 && extract_all_rules_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
-        char ds_path[256];
-        if (!resolve_ds_path(benchmark_id, ds_path, sizeof(ds_path))) {
-            response_text = "{\"error\":\"invalid benchmark id\"}";
-            status_code = MHD_HTTP_BAD_REQUEST;
+        struct rule_list *rules = NULL;
+        int count = all_rules_with_selection_for_profile(benchmark_id, profile_id, &rules);
+
+        if (count < 0) {
+            response_text = "{\"error\":\"profile not found or failed to load\"}";
+            status_code = MHD_HTTP_NOT_FOUND;
         } else {
-            struct rule_list *rules = NULL;
-            int count = all_rules_with_selection_for_profile(ds_path, profile_id, &rules);
+            response_text = rules_to_json(rules, count);
+            free_rule_info_list(rules, count);
 
-            if (count < 0) {
-                response_text = "{\"error\":\"profile not found or failed to load\"}";
-                status_code = MHD_HTTP_NOT_FOUND;
+            if (response_text == NULL) {
+                response_text = "{\"error\":\"json serialization failed\"}";
+                status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
             } else {
-                response_text = rules_to_json(rules, count);
-                free_rule_info_list(rules, count);
-
-                if (response_text == NULL) {
-                    response_text = "{\"error\":\"json serialization failed\"}";
-                    status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
-                } else {
-                    status_code = MHD_HTTP_OK;
-                    mem_mode = MHD_RESPMEM_MUST_FREE;
-                }
+                status_code = MHD_HTTP_OK;
+                mem_mode = MHD_RESPMEM_MUST_FREE;
             }
         }
     }
     else if (strcmp(method, "GET") == 0 && extract_profile_rules_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
-        char ds_path[256];
-        if (!resolve_ds_path(benchmark_id, ds_path, sizeof(ds_path))) {
-            response_text = "{\"error\":\"invalid benchmark id\"}";
-            status_code = MHD_HTTP_BAD_REQUEST;
+        struct rule_list *rules = NULL;
+        int count = selected_rules_for_profile(benchmark_id, profile_id, &rules);
+
+        if (count < 0) {
+            response_text = "{\"error\":\"profile not found or failed to load\"}";
+            status_code = MHD_HTTP_NOT_FOUND;
         } else {
-            struct rule_list *rules = NULL;
-            int count = selected_rules_for_profile(ds_path, profile_id, &rules);
+            response_text = rules_to_json(rules, count);
+            free_rule_info_list(rules, count);
 
-            if (count < 0) {
-                response_text = "{\"error\":\"profile not found or failed to load\"}";
-                status_code = MHD_HTTP_NOT_FOUND;
+            if (response_text == NULL) {
+                response_text = "{\"error\":\"json serialization failed\"}";
+                status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
             } else {
-                response_text = rules_to_json(rules, count);
-                free_rule_info_list(rules, count);
-
-                if (response_text == NULL) {
-                    response_text = "{\"error\":\"json serialization failed\"}";
-                    status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
-                } else {
-                    status_code = MHD_HTTP_OK;
-                    mem_mode = MHD_RESPMEM_MUST_FREE;
-                }
+                status_code = MHD_HTTP_OK;
+                mem_mode = MHD_RESPMEM_MUST_FREE;
             }
         }
     }
+    // GET /benchmarks/{id}/profiles -> profils DS + profils tailoring (si présents)
     else if (strcmp(method, "GET") == 0 && extract_benchmark_id(url, benchmark_id, sizeof(benchmark_id))) {
-        char ds_path[256];
-        if (!resolve_ds_path(benchmark_id, ds_path, sizeof(ds_path))) {
-            response_text = "{\"error\":\"invalid benchmark id\"}";
-            status_code = MHD_HTTP_BAD_REQUEST;
+        struct profile_list *profiles = NULL;
+        int profiles_count = 0;
+        struct profile_list *tailoring_profiles = NULL;
+        int tailoring_count = 0;
+
+        if (list_profiles_for_distro(benchmark_id, &profiles, &profiles_count, &tailoring_profiles, &tailoring_count) != 0) {
+            response_text = "{\"error\":\"failed to load benchmark\"}";
+            status_code = MHD_HTTP_NOT_FOUND;
         } else {
-            struct profile_list *profiles = NULL;
-            int count = list_profiles_for_ds(ds_path, &profiles);
+            response_text = profiles_and_tailoring_to_json(profiles, profiles_count, tailoring_profiles, tailoring_count);
+            free_profiles_for_distro(profiles, profiles_count, tailoring_profiles, tailoring_count);
 
-            if (count < 0) {
-                response_text = "{\"error\":\"failed to load benchmark\"}";
-                status_code = MHD_HTTP_NOT_FOUND;
+            if (response_text == NULL) {
+                response_text = "{\"error\":\"json serialization failed\"}";
+                status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
             } else {
-                response_text = profiles_to_json(profiles, count);
-                free_profile_list(profiles, count);
-
-                if (response_text == NULL) {
-                    response_text = "{\"error\":\"json serialization failed\"}";
-                    status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
-                } else {
-                    status_code = MHD_HTTP_OK;
-                    mem_mode = MHD_RESPMEM_MUST_FREE;
-                }
+                status_code = MHD_HTTP_OK;
+                mem_mode = MHD_RESPMEM_MUST_FREE;
             }
         }
     }

@@ -21,6 +21,7 @@ interface UseScanFlowResult {
   canContinue: boolean;
   selectedProfile: string;
   profiles: Profile[];
+  tailoringProfiles: Profile[];
   loadingProfiles: boolean;
   profilesError: string | null;
   toggleVersion: (distributionId: string, version: string) => void;
@@ -42,6 +43,7 @@ export function useScanFlow(): UseScanFlowResult {
   const [selectedProfile, setSelectedProfile] = useState("");
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [tailoringProfiles, setTailoringProfiles] = useState<Profile[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [profilesError, setProfilesError] = useState<string | null>(null);
 
@@ -59,7 +61,10 @@ export function useScanFlow(): UseScanFlowResult {
 
     getProfiles(benchmarkId)
       .then((data) => {
-        if (!cancelled) setProfiles(data);
+        if (!cancelled) {
+          setProfiles(data.profiles ?? []);
+          setTailoringProfiles(data.tailoring_profiles ?? []);
+        }
       })
       .catch((err) => {
         if (!cancelled) setProfilesError(err.message);
@@ -101,6 +106,7 @@ export function useScanFlow(): UseScanFlowResult {
     canContinue,
     selectedProfile,
     profiles,
+    tailoringProfiles,
     loadingProfiles,
     profilesError,
     toggleVersion,

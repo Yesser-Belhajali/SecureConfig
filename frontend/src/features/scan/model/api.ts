@@ -1,4 +1,4 @@
-import type { Profile, Rule, SaveProfilePayload } from "./types";
+import type { Profile, ProfilesResponse, Rule, SaveProfilePayload } from "./types";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -10,9 +10,9 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-export async function getProfiles(benchmarkId: string): Promise<Profile[]> {
+export async function getProfiles(benchmarkId: string): Promise<ProfilesResponse> {
   const response = await fetch(`${API_BASE_URL}/benchmarks/${benchmarkId}/profiles`);
-  return handleResponse<Profile[]>(response);
+  return handleResponse<ProfilesResponse>(response);
 }
 
 export async function getAllRules(benchmarkId: string): Promise<Rule[]> {
@@ -20,10 +20,7 @@ export async function getAllRules(benchmarkId: string): Promise<Rule[]> {
   return handleResponse<Rule[]>(response);
 }
 
-export async function getSelectedRulesForProfile(
-  benchmarkId: string,
-  profileId: string
-): Promise<Rule[]> {
+export async function getSelectedRulesForProfile(benchmarkId: string,profileId: string): Promise<Rule[]> {
   const response = await fetch(
     `${API_BASE_URL}/benchmarks/${benchmarkId}/profiles/${profileId}/rules`
   );

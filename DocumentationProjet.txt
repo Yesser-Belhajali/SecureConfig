@@ -1194,6 +1194,15 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -Je peux vérifier les fuites mémoires avec un outil que claude a proposé
 
+--------------------------------------------------------------------------------------------10/08/2026-------------------------------------------------------------------------------
+
+-J'ai réussi a réimplémenter toute la logique,maintenant je peux charger tous les profils(benchmark+tailoring 'il existe),j'ai deux listes,une pour les profils du benchmark et l'autre pour les profils du tailoring.
+
+-J'ai corrigé un peu le css car plusieurs choses etaiennt redondantes
+
+-J'ai corrigé la logique dans le serveur HTTP,maintenant on gére tres bien le cas du tailoring et tout
+
+
 
 
 

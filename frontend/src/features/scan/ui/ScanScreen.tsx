@@ -25,6 +25,7 @@ export function ScanScreen() {
     canContinue,
     selectedProfile,
     profiles,
+    tailoringProfiles,
     loadingProfiles,
     profilesError,
     toggleVersion,
@@ -91,17 +92,42 @@ export function ScanScreen() {
         {profilesError && <p className="text-sm text-red-400 mb-6">Erreur : {profilesError}</p>}
 
         {!loadingProfiles && !profilesError && (
-          <div className="space-y-2 mb-8">
-            {profiles.map(profile => (
-              <label key={profile.id} className="flex items-center gap-4 rounded-xl px-5 py-4 cursor-pointer border transition-all duration-200 hover:-translate-y-0.5 hover:border-[#A78BFA]/50" style={{ backgroundColor: selectedProfile === profile.id ? 'rgba(139,92,246,0.13)' : 'rgba(19,23,30,0.62)', borderColor: selectedProfile === profile.id ? 'rgba(167,139,250,0.65)' : 'rgba(255,255,255,0.10)', boxShadow: selectedProfile === profile.id ? '0 10px 28px rgba(76,29,149,.18)' : 'none' }}>
-                <input type="radio" name="profile" value={profile.id} checked={selectedProfile === profile.id} onChange={() => setSelectedProfile(profile.id)} className="accent-[#8B5CF6]" />
-                <span className="flex-1 min-w-0"><span className="block text-sm font-semibold text-[#E2E8F0]">{profile.title}</span><span className="block text-xs text-[#64748B] mt-1">Profil de conformité prêt à personnaliser</span></span><span className="text-[#A78BFA] text-sm" aria-hidden="true">{selectedProfile === profile.id ? '✓' : '→'}</span>
-              </label>
-            ))}
-          </div>
+          <>
+            <div className="space-y-2 mb-6">
+              {profiles.map(profile => (
+                <label key={profile.id} className="flex items-center gap-4 rounded-xl px-5 py-4 cursor-pointer border transition-all duration-200 hover:-translate-y-0.5 hover:border-[#A78BFA]/50" style={{ backgroundColor: selectedProfile === profile.id ? 'rgba(139,92,246,0.13)' : 'rgba(19,23,30,0.62)', borderColor: selectedProfile === profile.id ? 'rgba(167,139,250,0.65)' : 'rgba(255,255,255,0.10)', boxShadow: selectedProfile === profile.id ? '0 10px 28px rgba(76,29,149,.18)' : 'none' }}>
+                  <input type="radio" name="profile" value={profile.id} checked={selectedProfile === profile.id} onChange={() => setSelectedProfile(profile.id)} className="accent-[#8B5CF6]" />
+                  <span className="flex-1 min-w-0"><span className="block text-sm font-semibold text-[#E2E8F0]">{profile.title}</span><span className="block text-xs text-[#64748B] mt-1">Profil de conformité prêt à personnaliser</span></span>
+                  <span className="text-[#A78BFA] text-sm" aria-hidden="true">{selectedProfile === profile.id ? '✓' : '→'}</span>
+                </label>
+              ))}
+            </div>
+
+            {tailoringProfiles.length > 0 && (
+              <>
+                <p className="text-xs uppercase tracking-widest text-[#A78BFA] mb-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  Vos profils personnalisés
+                </p>
+                <div className="space-y-2 mb-8">
+                  {tailoringProfiles.map(profile => (
+                    <label key={profile.id} className="flex items-center gap-4 rounded-xl px-5 py-4 cursor-pointer border transition-all duration-200 hover:-translate-y-0.5 hover:border-[#A78BFA]/50" style={{ backgroundColor: selectedProfile === profile.id ? 'rgba(139,92,246,0.13)' : 'rgba(19,23,30,0.62)', borderColor: selectedProfile === profile.id ? 'rgba(167,139,250,0.65)' : 'rgba(255,255,255,0.10)', boxShadow: selectedProfile === profile.id ? '0 10px 28px rgba(76,29,149,.18)' : 'none' }}>
+                      <input type="radio" name="profile" value={profile.id} checked={selectedProfile === profile.id} onChange={() => setSelectedProfile(profile.id)} className="accent-[#8B5CF6]" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-[#E2E8F0]">{profile.title}</span>
+                        {profile.extends && (
+                          <span className="block text-xs text-[#64748B] mt-1">Étend {profile.extends}</span>
+                        )}
+                      </span>
+                      <span className="text-[#A78BFA] text-sm" aria-hidden="true">{selectedProfile === profile.id ? '✓' : '→'}</span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <button
             type="button"
             className="min-h-12 rounded-lg px-5 py-3 font-semibold text-sm shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:shadow-none"
@@ -110,16 +136,6 @@ export function ScanScreen() {
             onClick={() => navigate(`/benchmarks/${benchmarkId}/profiles/${selectedProfile}/view`, { state: { distributionId, version } })}
           >
             Voir profil →
-          </button>
-
-          <button
-            type="button"
-            className="min-h-12 rounded-lg px-5 py-3 font-semibold text-sm shadow-lg transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:shadow-none"
-            style={{ backgroundColor: selectedProfile ? '#7C3AED' : '#1A1F29', color: selectedProfile ? '#fff' : '#475569', boxShadow: selectedProfile ? '0 10px 20px rgba(109,40,217,.28)' : undefined }}
-            disabled={!selectedProfile}
-            onClick={() => navigate(`/benchmarks/${benchmarkId}/profiles/${selectedProfile}/edit`, { state: { distributionId, version } })}
-          >
-            Modifier profil →
           </button>
 
           <Link
