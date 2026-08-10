@@ -1202,10 +1202,14 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -J'ai corrigé la logique dans le serveur HTTP,maintenant on gére tres bien le cas du tailoring et tout
 
+-J'ai corrigé une erreir commise par l'IA ou il parse deux fois le meme benchmark
 
 
 
 
+
+-Yesser hak 3andek fonction ta3mallek el benchmark w kol tnajem tsa8er fih barcha el code ama mouch tawa
+-Yesser fama mochkla fel backend ennou yparsi el benchmark 2 marat famech 3lech,rodou y3awed yab3ath el benchmark lel fonction ta3 list_tailoring_profiles walla al9a 7al e5er(ok)
 -Yesser tfa9ed ken rule wel res mte3ha 3andhom nafs el ID walla le(OUI rule et rule_result ont le meme ID)
 -Yesser rigel el CSS fama 7ajet zeyda el AI nse bich yfassa5ha
 -Yesser rigel mochkol mta3 Scan.tsx

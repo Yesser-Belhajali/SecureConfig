@@ -19,8 +19,7 @@ struct rule_list{
     bool selected;
 };
 
-int list_profiles_for_ds(const char *ds_path,struct profile_list **out_profiles);
-int list_tailoring_profiles_for_ds(const char *ds_path, const char *tailoring_path, struct profile_list **out_profiles);
+
 int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, int *out_profiles_count,struct profile_list **out_tailoring_profiles, int *out_tailoring_count);
 void free_profile_list(struct profile_list *profiles, int count);
 void free_profiles_for_distro(struct profile_list *profiles, int profiles_count,struct profile_list *tailoring_profiles, int tailoring_count);

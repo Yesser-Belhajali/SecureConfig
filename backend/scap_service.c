@@ -197,91 +197,81 @@ void free_profile_list(struct profile_list *profiles,int count){
     free(profiles);
 }
 
-int list_profiles_for_ds(const char *ds_path,struct profile_list **out_profiles){
 
-    if(out_profiles==NULL){
+static int load_benchmark_from_ds(const char *ds_path, struct ds_sds_session **out_session, struct xccdf_benchmark **out_benchmark){
+    *out_session = NULL;
+    *out_benchmark = NULL;
+
+    struct oscap_source *oscap_ds_source = oscap_source_new_from_file(ds_path);
+    if(oscap_ds_source == NULL){
         return -1;
     }
 
-    *out_profiles=NULL;
-
-    oscap_init();
-
-    struct oscap_source *oscap_ds_source=oscap_source_new_from_file(ds_path);
-    if(oscap_ds_source==NULL){
-        oscap_cleanup();
-        return -1;
-    }
-
-    struct ds_sds_session *ds_sds_session=ds_sds_session_new_from_source(oscap_ds_source);
-    if(ds_sds_session==NULL){
+    struct ds_sds_session *ds_sds_session = ds_sds_session_new_from_source(oscap_ds_source);
+    if(ds_sds_session == NULL){
         oscap_source_free(oscap_ds_source);
-        oscap_cleanup();
         return -1;
     }
 
-    struct oscap_source *oscap_xccdf_source=ds_sds_session_select_checklist(ds_sds_session,NULL,NULL,NULL);
-    if(oscap_xccdf_source==NULL){
+    struct oscap_source *oscap_xccdf_source = ds_sds_session_select_checklist(ds_sds_session, NULL, NULL, NULL);
+    if(oscap_xccdf_source == NULL){
         ds_sds_session_free(ds_sds_session);
         oscap_source_free(oscap_ds_source);
-        oscap_cleanup();
         return -1;
     }
 
     oscap_source_free(oscap_ds_source);
 
-    struct xccdf_benchmark *benchmark=xccdf_benchmark_import_source(oscap_xccdf_source);
-    if(benchmark==NULL){
+    struct xccdf_benchmark *benchmark = xccdf_benchmark_import_source(oscap_xccdf_source);
+    if(benchmark == NULL){
         ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
         return -1;
     }
 
-    struct xccdf_profile_iterator *profile_iterator=xccdf_benchmark_get_profiles(benchmark);
-    if(profile_iterator==NULL){
-        xccdf_benchmark_free(benchmark);
-        ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
-        return -1;
+    *out_session = ds_sds_session;
+    *out_benchmark = benchmark;
+    return 0;
+}
+
+static struct xccdf_profile *find_profile_by_id(struct xccdf_profile_iterator *it, const char *profile_id) {
+    if (it == NULL) return NULL;
+    while (xccdf_profile_iterator_has_more(it)) {
+        struct xccdf_profile *p = xccdf_profile_iterator_next(it);
+        const char *id = xccdf_profile_get_id(p);
+        if (id != NULL && strcmp(id, profile_id) == 0) {
+            return p;
+        }
     }
+    return NULL;
+}
 
-    struct profile_list *profiles=NULL;
-
-    int count=0;
+static int profiles_from_iterator(struct xccdf_profile_iterator *profile_iterator, struct profile_list **out_profiles){
+    struct profile_list *profiles = NULL;
+    int count = 0;
 
     while(xccdf_profile_iterator_has_more(profile_iterator)){
-
-        struct xccdf_profile *profile=xccdf_profile_iterator_next(profile_iterator);
-        if(profile==NULL){
-            free_profile_list(profiles,count);
-            xccdf_profile_iterator_free(profile_iterator);
-            xccdf_benchmark_free(benchmark);
-            ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
+        struct xccdf_profile *profile = xccdf_profile_iterator_next(profile_iterator);
+        if(profile == NULL){
+            free_profile_list(profiles, count);
             return -1;
         }
 
-        struct profile_list *tmp=realloc(profiles, (count+1)* sizeof(struct profile_list));
-        if(tmp==NULL){
-            free_profile_list(profiles,count);
-            xccdf_profile_iterator_free(profile_iterator);
-            xccdf_benchmark_free(benchmark);
-            ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
+        struct profile_list *tmp = realloc(profiles, (count+1) * sizeof(struct profile_list));
+        if(tmp == NULL){
+            free_profile_list(profiles, count);
             return -1;
         }
-
-        profiles=tmp;
+        profiles = tmp;
 
         profiles[count].id = NULL;
         profiles[count].title = NULL;
         profiles[count].description = NULL;
         profiles[count].extends = NULL;
 
-        const char *id=xccdf_profile_get_id(profile);
-        const char *title=get_profile_title(profile);
-        const char *description=get_profile_description(profile);
-        const char *extends=xccdf_profile_get_extends(profile);
+        const char *id = xccdf_profile_get_id(profile);
+        const char *title = get_profile_title(profile);
+        const char *description = get_profile_description(profile);
+        const char *extends = xccdf_profile_get_extends(profile);
 
         profiles[count].id = id ? strdup(id) : NULL;
         profiles[count].title = title ? strdup(title) : NULL;
@@ -293,165 +283,13 @@ int list_profiles_for_ds(const char *ds_path,struct profile_list **out_profiles)
             free(profiles[count].title);
             free(profiles[count].description);
             free(profiles[count].extends);
-            free_profile_list(profiles,count);
-            xccdf_profile_iterator_free(profile_iterator);
-            xccdf_benchmark_free(benchmark);
-            ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
+            free_profile_list(profiles, count);
             return -1;
         }
         count++;
     }
 
-
-    xccdf_profile_iterator_free(profile_iterator);
-    xccdf_benchmark_free(benchmark);
-    ds_sds_session_free(ds_sds_session);
-    oscap_cleanup();
-
-    *out_profiles=profiles;
-    return count;
-}
-
-int list_tailoring_profiles_for_ds(const char *ds_path, const char *tailoring_path, struct profile_list **out_profiles){
-    if(out_profiles==NULL){
-        return -1;
-    }
-    *out_profiles=NULL;
-
-    if(access(tailoring_path, F_OK)!=0){
-        return 0;
-    }
-
-    oscap_init();
-
-    struct oscap_source *oscap_ds_source=oscap_source_new_from_file(ds_path);
-    if(oscap_ds_source==NULL){
-        oscap_cleanup();
-        return -1;
-    }
-
-    struct ds_sds_session *ds_sds_session=ds_sds_session_new_from_source(oscap_ds_source);
-    if(ds_sds_session==NULL){
-        oscap_source_free(oscap_ds_source);
-        oscap_cleanup();
-        return -1;
-    }
-
-    struct oscap_source *oscap_xccdf_source=ds_sds_session_select_checklist(ds_sds_session,NULL,NULL,NULL);
-    if(oscap_xccdf_source==NULL){
-        ds_sds_session_free(ds_sds_session);
-        oscap_source_free(oscap_ds_source);
-        oscap_cleanup();
-        return -1;
-    }
-
-    oscap_source_free(oscap_ds_source);
-
-    struct xccdf_benchmark *benchmark=xccdf_benchmark_import_source(oscap_xccdf_source);
-    if(benchmark==NULL){
-        ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
-        return -1;
-    }
-
-    struct oscap_source *oscap_tailoring_source=oscap_source_new_from_file(tailoring_path);
-    if(oscap_tailoring_source==NULL){
-        xccdf_benchmark_free(benchmark);
-        ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
-        return -1;
-    }
-
-    struct xccdf_tailoring *tailoring=xccdf_tailoring_import_source(oscap_tailoring_source,benchmark);
-    if(tailoring==NULL){
-        oscap_source_free(oscap_tailoring_source);
-        xccdf_benchmark_free(benchmark);
-        ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
-        return -1;
-    }
-
-    struct xccdf_profile_iterator *profile_iterator=xccdf_tailoring_get_profiles(tailoring);
-    if(profile_iterator==NULL){
-        xccdf_tailoring_free(tailoring);
-        oscap_source_free(oscap_tailoring_source);
-        xccdf_benchmark_free(benchmark);
-        ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
-        return -1;
-    }
-
-    struct profile_list *profiles=NULL;
-    int count=0;
-
-    while(xccdf_profile_iterator_has_more(profile_iterator)){
-
-        struct xccdf_profile *profile=xccdf_profile_iterator_next(profile_iterator);
-        if(profile==NULL){
-            free_profile_list(profiles,count);
-            xccdf_profile_iterator_free(profile_iterator);
-            xccdf_tailoring_free(tailoring);
-            oscap_source_free(oscap_tailoring_source);
-            xccdf_benchmark_free(benchmark);
-            ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
-            return -1;
-        }
-
-        struct profile_list *tmp=realloc(profiles, (count+1)* sizeof(struct profile_list));
-        if(tmp==NULL){
-            free_profile_list(profiles,count);
-            xccdf_profile_iterator_free(profile_iterator);
-            xccdf_tailoring_free(tailoring);
-            oscap_source_free(oscap_tailoring_source);
-            xccdf_benchmark_free(benchmark);
-            ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
-            return -1;
-        }
-        profiles=tmp;
-
-        profiles[count].id=NULL;
-        profiles[count].title=NULL;
-        profiles[count].description=NULL;
-        profiles[count].extends=NULL;
-
-        const char *id=xccdf_profile_get_id(profile);
-        const char *title=get_profile_title(profile);
-        const char *description=get_profile_description(profile);
-        const char *extends=xccdf_profile_get_extends(profile);
-
-        profiles[count].id = id ? strdup(id) : NULL;
-        profiles[count].title = title ? strdup(title) : NULL;
-        profiles[count].description = description ? strdup(description) : NULL;
-        profiles[count].extends = extends ? strdup(extends) : NULL;
-
-        if((id!=NULL && profiles[count].id==NULL) || (title!=NULL && profiles[count].title==NULL) || (description!=NULL && profiles[count].description==NULL) || (extends!=NULL && profiles[count].extends==NULL)){
-            free(profiles[count].id);
-            free(profiles[count].title);
-            free(profiles[count].description);
-            free(profiles[count].extends);
-            free_profile_list(profiles,count);
-            xccdf_profile_iterator_free(profile_iterator);
-            xccdf_tailoring_free(tailoring);
-            oscap_source_free(oscap_tailoring_source);
-            xccdf_benchmark_free(benchmark);
-            ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
-            return -1;
-        }
-        count++;
-    }
-
-    xccdf_profile_iterator_free(profile_iterator);
-    xccdf_tailoring_free(tailoring);
-    oscap_source_free(oscap_tailoring_source);
-    xccdf_benchmark_free(benchmark);
-    ds_sds_session_free(ds_sds_session);
-    oscap_cleanup();
-
-    *out_profiles=profiles;
+    *out_profiles = profiles;
     return count;
 }
 
@@ -472,26 +310,93 @@ int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, 
     int n1=snprintf(ds_path,sizeof(ds_path),"../data/%s/ssg-%s-ds.xml",id,id);
     int n2=snprintf(tailoring_path,sizeof(tailoring_path),"../data/%s/ssg-%s-tailoring.xml",id,id);
     if(n1<0 || (size_t)n1>=sizeof(ds_path) || n2<0 || (size_t)n2>=sizeof(tailoring_path)){
-        return -1; // id trop long, chemin tronqué
-    }
-
-    struct profile_list *profiles=NULL;
-    int profiles_count=list_profiles_for_ds(ds_path,&profiles);
-    if(profiles_count<0){
         return -1;
     }
 
-    struct profile_list *tailoring_profiles=NULL;
-    int tailoring_count=list_tailoring_profiles_for_ds(ds_path,tailoring_path,&tailoring_profiles);
-    if(tailoring_count<0){
-        free_profile_list(profiles,profiles_count);
+    oscap_init();
+
+    struct ds_sds_session *ds_sds_session = NULL;
+    struct xccdf_benchmark *benchmark = NULL;
+    if(load_benchmark_from_ds(ds_path, &ds_sds_session, &benchmark) != 0){
+        oscap_cleanup();
         return -1;
     }
 
-    *out_profiles=profiles;
-    *out_profiles_count=profiles_count;
-    *out_tailoring_profiles=tailoring_profiles;
-    *out_tailoring_count=tailoring_count;
+    struct xccdf_profile_iterator *profile_iterator = xccdf_benchmark_get_profiles(benchmark);
+    if(profile_iterator == NULL){
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    struct profile_list *profiles = NULL;
+    int profiles_count = profiles_from_iterator(profile_iterator, &profiles);
+    xccdf_profile_iterator_free(profile_iterator);
+
+    if(profiles_count < 0){
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    struct profile_list *tailoring_profiles = NULL;
+    int tailoring_count = 0;
+
+    if(access(tailoring_path, F_OK) == 0){
+        struct oscap_source *oscap_tailoring_source = oscap_source_new_from_file(tailoring_path);
+        if(oscap_tailoring_source == NULL){
+            free_profile_list(profiles, profiles_count);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+
+        struct xccdf_tailoring *tailoring = xccdf_tailoring_import_source(oscap_tailoring_source, benchmark);
+        if(tailoring == NULL){
+            oscap_source_free(oscap_tailoring_source);
+            free_profile_list(profiles, profiles_count);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+
+        struct xccdf_profile_iterator *tailoring_iterator = xccdf_tailoring_get_profiles(tailoring);
+        if(tailoring_iterator == NULL){
+            xccdf_tailoring_free(tailoring);
+            oscap_source_free(oscap_tailoring_source);
+            free_profile_list(profiles, profiles_count);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+
+        tailoring_count = profiles_from_iterator(tailoring_iterator, &tailoring_profiles);
+        xccdf_profile_iterator_free(tailoring_iterator);
+        xccdf_tailoring_free(tailoring);
+        oscap_source_free(oscap_tailoring_source);
+
+        if(tailoring_count < 0){
+            free_profile_list(profiles, profiles_count);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+    }
+
+    xccdf_benchmark_free(benchmark);
+    ds_sds_session_free(ds_sds_session);
+    oscap_cleanup();
+
+    *out_profiles = profiles;
+    *out_profiles_count = profiles_count;
+    *out_tailoring_profiles = tailoring_profiles;
+    *out_tailoring_count = tailoring_count;
 
     return 0;
 }
@@ -527,32 +432,9 @@ int list_rules_for_ds(const char *ds_path,struct rule_list **out_rules){
 
     oscap_init();
 
-    struct oscap_source *oscap_ds_source=oscap_source_new_from_file(ds_path);
-    if(oscap_ds_source==NULL){
-        oscap_cleanup();
-        return -1;
-    }
-
-    struct ds_sds_session *ds_sds_session=ds_sds_session_new_from_source(oscap_ds_source);
-    if(ds_sds_session==NULL){
-        oscap_source_free(oscap_ds_source);
-        oscap_cleanup();
-        return -1;
-    }
-
-    struct oscap_source *oscap_xccdf_source=ds_sds_session_select_checklist(ds_sds_session,NULL,NULL,NULL);
-    if(oscap_xccdf_source==NULL){
-        ds_sds_session_free(ds_sds_session);
-        oscap_source_free(oscap_ds_source);
-        oscap_cleanup();
-        return -1;
-    }
-
-    oscap_source_free(oscap_ds_source);
-
-    struct xccdf_benchmark *benchmark=xccdf_benchmark_import_source(oscap_xccdf_source);
-    if(benchmark==NULL){
-        ds_sds_session_free(ds_sds_session);
+    struct ds_sds_session *ds_sds_session = NULL;
+    struct xccdf_benchmark *benchmark = NULL;
+    if(load_benchmark_from_ds(ds_path, &ds_sds_session, &benchmark) != 0){
         oscap_cleanup();
         return -1;
     }
@@ -642,40 +524,16 @@ static int resolve_profile_context(const char *benchmark_id, const char *profile
         return -1;
     }
 
-    struct oscap_source *oscap_ds_source = oscap_source_new_from_file(ds_path);
-    if (oscap_ds_source == NULL) return -1;
-
-    struct ds_sds_session *ds_sds_session = ds_sds_session_new_from_source(oscap_ds_source);
-    if (ds_sds_session == NULL) {
-        oscap_source_free(oscap_ds_source);
-        return -1;
-    }
-
-    struct oscap_source *oscap_xccdf_source = ds_sds_session_select_checklist(ds_sds_session, NULL, NULL, NULL);
-    if (oscap_xccdf_source == NULL) {
-        ds_sds_session_free(ds_sds_session);
-        oscap_source_free(oscap_ds_source);
-        return -1;
-    }
-    oscap_source_free(oscap_ds_source);
-
-    struct xccdf_benchmark *benchmark = xccdf_benchmark_import_source(oscap_xccdf_source);
-    if (benchmark == NULL) {
-        ds_sds_session_free(ds_sds_session);
+    struct ds_sds_session *ds_sds_session = NULL;
+    struct xccdf_benchmark *benchmark = NULL;
+    if(load_benchmark_from_ds(ds_path, &ds_sds_session, &benchmark) != 0){
         return -1;
     }
 
     // 1. recherche dans les profils natifs
-    struct xccdf_profile *profile = NULL;
     struct xccdf_profile_iterator *pit = xccdf_benchmark_get_profiles(benchmark);
+    struct xccdf_profile *profile = find_profile_by_id(pit, profile_id);
     if (pit != NULL) {
-        while (xccdf_profile_iterator_has_more(pit)) {
-            struct xccdf_profile *p = xccdf_profile_iterator_next(pit);
-            if (strcmp(xccdf_profile_get_id(p), profile_id) == 0) {
-                profile = p;
-                break;
-            }
-        }
         xccdf_profile_iterator_free(pit);
     }
 
@@ -700,14 +558,8 @@ static int resolve_profile_context(const char *benchmark_id, const char *profile
         }
 
         struct xccdf_profile_iterator *tit = xccdf_tailoring_get_profiles(tailoring);
+        profile = find_profile_by_id(tit, profile_id);
         if (tit != NULL) {
-            while (xccdf_profile_iterator_has_more(tit)) {
-                struct xccdf_profile *p = xccdf_profile_iterator_next(tit);
-                if (strcmp(xccdf_profile_get_id(p), profile_id) == 0) {
-                    profile = p;
-                    break;
-                }
-            }
             xccdf_profile_iterator_free(tit);
         }
     }
