@@ -1,11 +1,31 @@
 // http_server.c
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <microhttpd.h>
+#include <cjson/cJSON.h>
 #include "scap_service.h"
 #include "json_utils.h"
 
 #define PORT 8000
+
+
+struct connection_info {
+    char *body;
+    size_t body_size;
+};
+
+
+
+static void request_completed(void *cls, struct MHD_Connection *connection,
+                               void **con_cls, enum MHD_RequestTerminationCode toe) {
+    struct connection_info *con_info = *con_cls;
+    if (con_info != NULL) {
+        free(con_info->body);
+        free(con_info);
+        *con_cls = NULL;
+    }
+}
 
 
 static int extract_benchmark_id(const char *url, char *out_id, size_t out_size) {
@@ -71,6 +91,105 @@ static int resolve_ds_path(const char *benchmark_id, char *out_path, size_t out_
     return 1;
 }
 
+
+// construit le corps JSON de réponse pour une création réussie: {"id": "..."}
+static char *build_created_response(const char *new_id) {
+    cJSON *resp = cJSON_CreateObject();
+    if (resp == NULL) return NULL;
+    cJSON_AddStringToObject(resp, "id", new_id);
+    char *json_str = cJSON_Print(resp);
+    cJSON_Delete(resp);
+    return json_str;
+}
+
+
+static void handle_create_profile(const char *benchmark_id, const char *body,
+                                    const char **response_text, int *status_code,
+                                    enum MHD_ResponseMemoryMode *mem_mode) {
+    cJSON *json = cJSON_Parse(body != NULL ? body : "");
+    if (json == NULL) {
+        *response_text = "{\"error\":\"invalid json\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+        return;
+    }
+
+    cJSON *name_item = cJSON_GetObjectItemCaseSensitive(json, "name");
+    cJSON *description_item = cJSON_GetObjectItemCaseSensitive(json, "description");
+    cJSON *base_profile_item = cJSON_GetObjectItemCaseSensitive(json, "base_profile_id");
+    cJSON *added_item = cJSON_GetObjectItemCaseSensitive(json, "added");
+    cJSON *removed_item = cJSON_GetObjectItemCaseSensitive(json, "removed");
+
+    const char *name = cJSON_IsString(name_item) ? name_item->valuestring : NULL;
+    const char *description = cJSON_IsString(description_item) ? description_item->valuestring : NULL;
+    const char *base_profile_id = cJSON_IsString(base_profile_item) ? base_profile_item->valuestring : NULL;
+
+    if (name == NULL || name[0] == '\0' || !cJSON_IsArray(added_item) || !cJSON_IsArray(removed_item)) {
+        *response_text = "{\"error\":\"missing or invalid fields (name, added, removed required)\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+        cJSON_Delete(json);
+        return;
+    }
+
+    int added_count = cJSON_GetArraySize(added_item);
+    int removed_count = cJSON_GetArraySize(removed_item);
+
+    const char **added_ids = added_count > 0 ? malloc(added_count * sizeof(char *)) : NULL;
+    const char **removed_ids = removed_count > 0 ? malloc(removed_count * sizeof(char *)) : NULL;
+
+    bool arrays_ok = (added_count == 0 || added_ids != NULL) && (removed_count == 0 || removed_ids != NULL);
+
+    for (int i = 0; arrays_ok && i < added_count; i++) {
+        cJSON *item = cJSON_GetArrayItem(added_item, i);
+        if (!cJSON_IsString(item)) { arrays_ok = false; break; }
+        added_ids[i] = item->valuestring;
+    }
+    for (int i = 0; arrays_ok && i < removed_count; i++) {
+        cJSON *item = cJSON_GetArrayItem(removed_item, i);
+        if (!cJSON_IsString(item)) { arrays_ok = false; break; }
+        removed_ids[i] = item->valuestring;
+    }
+
+    if (!arrays_ok) {
+        *response_text = "{\"error\":\"added/removed must be arrays of strings\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+        free(added_ids);
+        free(removed_ids);
+        cJSON_Delete(json);
+        return;
+    }
+
+    char new_id[256];
+    int ret = create_tailoring_profile(benchmark_id, name, description, base_profile_id,
+                                        added_ids, added_count, removed_ids, removed_count,
+                                        new_id, sizeof(new_id));
+
+    free(added_ids);
+    free(removed_ids);
+
+    if (ret == 0) {
+        *response_text = build_created_response(new_id);
+        if (*response_text == NULL) {
+            *response_text = "{\"error\":\"json serialization failed\"}";
+            *status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+        } else {
+            *status_code = MHD_HTTP_CREATED;
+            *mem_mode = MHD_RESPMEM_MUST_FREE;
+        }
+    } else if (ret == -2) {
+        *response_text = "{\"error\":\"a profile with this name already exists\"}";
+        *status_code = MHD_HTTP_CONFLICT;
+    } else if (ret == -3) {
+        *response_text = "{\"error\":\"base profile not found\"}";
+        *status_code = MHD_HTTP_NOT_FOUND;
+    } else {
+        *response_text = "{\"error\":\"failed to create profile\"}";
+        *status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    cJSON_Delete(json);
+}
+
+
 static enum MHD_Result handle_request(void *cls,
                                         struct MHD_Connection *connection,
                                         const char *url,
@@ -80,9 +199,30 @@ static enum MHD_Result handle_request(void *cls,
                                         size_t *upload_data_size,
                                         void **con_cls) {
 
-    static int dummy;
     if (*con_cls == NULL) {
-        *con_cls = &dummy;
+        struct connection_info *con_info = malloc(sizeof(struct connection_info));
+        if (con_info == NULL) {
+            return MHD_NO;
+        }
+        con_info->body = NULL;
+        con_info->body_size = 0;
+        *con_cls = con_info;
+        return MHD_YES;
+    }
+
+    struct connection_info *con_info = *con_cls;
+
+    // accumule le corps de la requête tant qu'il en reste (POST notamment)
+    if (*upload_data_size != 0) {
+        char *tmp = realloc(con_info->body, con_info->body_size + *upload_data_size + 1);
+        if (tmp == NULL) {
+            return MHD_NO;
+        }
+        con_info->body = tmp;
+        memcpy(con_info->body + con_info->body_size, upload_data, *upload_data_size);
+        con_info->body_size += *upload_data_size;
+        con_info->body[con_info->body_size] = '\0';
+        *upload_data_size = 0;
         return MHD_YES;
     }
 
@@ -171,6 +311,10 @@ static enum MHD_Result handle_request(void *cls,
             }
         }
     }
+    // POST /benchmarks/{id}/profiles -> création d'un profil de tailoring
+    else if (strcmp(method, "POST") == 0 && extract_benchmark_id(url, benchmark_id, sizeof(benchmark_id))) {
+        handle_create_profile(benchmark_id, con_info->body, &response_text, &status_code, &mem_mode);
+    }
     else if (strcmp(method, "GET") == 0 && extract_rules_request(url, benchmark_id, sizeof(benchmark_id))) {
         char ds_path[256];
         if (!resolve_ds_path(benchmark_id, ds_path, sizeof(ds_path))) {
@@ -222,6 +366,7 @@ int main(void) {
         PORT,
         NULL, NULL,
         &handle_request, NULL,
+        MHD_OPTION_NOTIFY_COMPLETED, &request_completed, NULL,
         MHD_OPTION_END);
 
     if (daemon == NULL) {

@@ -32,4 +32,11 @@ void free_rule_info_list(struct rule_list *rules,int count);
 int selected_rules_for_profile(const char *benchmark_id, const char *profile_id, struct rule_list **out_rules);
 int all_rules_with_selection_for_profile(const char *benchmark_id, const char *profile_id, struct rule_list **out_rules);
 
+
+int create_tailoring_profile(const char *benchmark_id, const char *name, const char *description,
+                              const char *base_profile_id, // NULL = from-scratch
+                              const char **added_ids, int added_count,
+                              const char **removed_ids, int removed_count,
+                              char *out_new_id, size_t out_id_size);
+
 #endif

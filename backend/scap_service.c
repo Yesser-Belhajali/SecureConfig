@@ -233,18 +233,6 @@ static int load_benchmark_from_ds(const char *ds_path, struct ds_sds_session **o
     return 0;
 }
 
-static struct xccdf_profile *find_profile_by_id(struct xccdf_profile_iterator *it, const char *profile_id) {
-    if (it == NULL) return NULL;
-    while (xccdf_profile_iterator_has_more(it)) {
-        struct xccdf_profile *p = xccdf_profile_iterator_next(it);
-        const char *id = xccdf_profile_get_id(p);
-        if (id != NULL && strcmp(id, profile_id) == 0) {
-            return p;
-        }
-    }
-    return NULL;
-}
-
 static int profiles_from_iterator(struct xccdf_profile_iterator *profile_iterator, struct profile_list **out_profiles){
     struct profile_list *profiles = NULL;
     int count = 0;
@@ -531,11 +519,7 @@ static int resolve_profile_context(const char *benchmark_id, const char *profile
     }
 
     // 1. recherche dans les profils natifs
-    struct xccdf_profile_iterator *pit = xccdf_benchmark_get_profiles(benchmark);
-    struct xccdf_profile *profile = find_profile_by_id(pit, profile_id);
-    if (pit != NULL) {
-        xccdf_profile_iterator_free(pit);
-    }
+    struct xccdf_profile *profile = xccdf_benchmark_get_profile_by_id(benchmark, profile_id);
 
     // 2. si pas trouvé, recherche dans le tailoring (s'il existe)
     struct xccdf_tailoring *tailoring = NULL;
@@ -557,11 +541,7 @@ static int resolve_profile_context(const char *benchmark_id, const char *profile
             return -1;
         }
 
-        struct xccdf_profile_iterator *tit = xccdf_tailoring_get_profiles(tailoring);
-        profile = find_profile_by_id(tit, profile_id);
-        if (tit != NULL) {
-            xccdf_profile_iterator_free(tit);
-        }
+        profile = xccdf_tailoring_get_profile_by_id(tailoring, profile_id);
     }
 
     if (profile == NULL) {
@@ -788,4 +768,291 @@ int all_rules_with_selection_for_profile(const char *benchmark_id, const char *p
 
     *out_rules=rules;
     return count;
+}
+
+
+static void slugify(const char *name, char *out, size_t out_size) {
+    size_t j = 0;
+    for (size_t i = 0; name[i] != '\0' && j + 1 < out_size; i++) {
+        char c = name[i];
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+            out[j++] = c;
+        } else if (c >= 'A' && c <= 'Z') {
+            out[j++] = c - 'A' + 'a';
+        } else if (j > 0 && out[j-1] != '_') {
+            out[j++] = '_';
+        }
+    }
+    while (j > 0 && out[j-1] == '_') j--;
+    out[j] = '\0';
+}
+
+static bool id_exists(const char *id, struct profile_list *profiles, int count) {
+    for (int i = 0; i < count; i++) {
+        if (profiles[i].id != NULL && strcmp(profiles[i].id, id) == 0) return true;
+    }
+    return false;
+}
+
+static bool title_exists(const char *title, struct profile_list *profiles, int count) {
+    for (int i = 0; i < count; i++) {
+        if (profiles[i].title != NULL && strcmp(profiles[i].title, title) == 0) return true;
+    }
+    return false;
+}
+
+static int generate_unique_id(const char *name, struct profile_list *native, int native_count,
+                               struct profile_list *tailoring, int tailoring_count,
+                               char *out_id, size_t out_size){
+    char slug[192];
+    slugify(name, slug, sizeof(slug));
+    if (slug[0] == '\0') {
+        strcpy(slug, "profile");
+    }
+
+    for (int suffix = 0; suffix < 1000; suffix++) {
+        int n = (suffix == 0)
+            ? snprintf(out_id, out_size, "custom_%s", slug)
+            : snprintf(out_id, out_size, "custom_%s_%d", slug, suffix + 1);
+        if (n < 0 || (size_t)n >= out_size) return -1;
+
+        if (!id_exists(out_id, native, native_count) && !id_exists(out_id, tailoring, tailoring_count)) {
+            return 0;
+        }
+    }
+    return -1;
+}
+
+
+int create_tailoring_profile(const char *benchmark_id, const char *name, const char *description,
+                              const char *base_profile_id, // NULL = from-scratch
+                              const char **added_ids, int added_count,
+                              const char **removed_ids, int removed_count,
+                              char *out_new_id, size_t out_id_size){
+
+    if(benchmark_id==NULL || name==NULL || out_new_id==NULL){
+        return -1;
+    }
+
+    // 1. unicité du nom + génération de l'id
+    struct profile_list *native_profiles=NULL;
+    int native_count=0;
+    struct profile_list *tailoring_profiles_list=NULL;
+    int tailoring_list_count=0;
+
+    if(list_profiles_for_distro(benchmark_id,&native_profiles,&native_count,&tailoring_profiles_list,&tailoring_list_count)!=0){
+        return -1;
+    }
+
+    if(title_exists(name, native_profiles, native_count) || title_exists(name, tailoring_profiles_list, tailoring_list_count)){
+        free_profiles_for_distro(native_profiles, native_count, tailoring_profiles_list, tailoring_list_count);
+        return -2;
+    }
+
+    char new_id[256];
+    if(generate_unique_id(name, native_profiles, native_count, tailoring_profiles_list, tailoring_list_count, new_id, sizeof(new_id))!=0){
+        free_profiles_for_distro(native_profiles, native_count, tailoring_profiles_list, tailoring_list_count);
+        return -1;
+    }
+
+    free_profiles_for_distro(native_profiles, native_count, tailoring_profiles_list, tailoring_list_count);
+
+    // 2. chemins + chargement du DS
+    char ds_path[256], tailoring_path[256];
+    int n1=snprintf(ds_path,sizeof(ds_path),"../data/%s/ssg-%s-ds.xml",benchmark_id,benchmark_id);
+    int n2=snprintf(tailoring_path,sizeof(tailoring_path),"../data/%s/ssg-%s-tailoring.xml",benchmark_id,benchmark_id);
+    if(n1<0 || (size_t)n1>=sizeof(ds_path) || n2<0 || (size_t)n2>=sizeof(tailoring_path)){
+        return -1;
+    }
+
+    oscap_init();
+
+    struct ds_sds_session *ds_sds_session=NULL;
+    struct xccdf_benchmark *benchmark=NULL;
+    if(load_benchmark_from_ds(ds_path,&ds_sds_session,&benchmark)!=0){
+        oscap_cleanup();
+        return -1;
+    }
+
+    // 3. charge le tailoring existant, ou en crée un nouveau
+    bool tailoring_existed = (access(tailoring_path, F_OK) == 0);
+    struct oscap_source *tailoring_source = NULL;
+    struct xccdf_tailoring *tailoring = NULL;
+
+    if(tailoring_existed){
+        tailoring_source = oscap_source_new_from_file(tailoring_path);
+        if(tailoring_source == NULL){
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+        tailoring = xccdf_tailoring_import_source(tailoring_source, benchmark);
+        if(tailoring == NULL){
+            oscap_source_free(tailoring_source);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+    } else {
+        tailoring = xccdf_tailoring_new();
+        if(tailoring == NULL){
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+        const char *bench_id = xccdf_benchmark_get_id(benchmark);
+        if(!xccdf_tailoring_set_id(tailoring, "tailoring") || !xccdf_tailoring_set_benchmark_ref(tailoring, bench_id)){
+            xccdf_tailoring_free(tailoring);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+    }
+
+    // 4. valide le profil de base, s'il est fourni (natif ou déjà dans le tailoring)
+    if(base_profile_id != NULL){
+        struct xccdf_profile *base_profile = xccdf_benchmark_get_profile_by_id(benchmark, base_profile_id);
+
+        if(base_profile == NULL && tailoring_existed){
+            base_profile = xccdf_tailoring_get_profile_by_id(tailoring, base_profile_id);
+        }
+
+        if(base_profile == NULL){
+            xccdf_tailoring_free(tailoring);
+            if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -3;
+        }
+    }
+
+    // 5. crée le profil
+    struct xccdf_profile *profile = xccdf_profile_new();
+    if(profile == NULL){
+        xccdf_tailoring_free(tailoring);
+        if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    if(!xccdf_profile_set_id(profile, new_id) || !xccdf_profile_set_tailoring(profile, true)){
+        xccdf_profile_free(xccdf_profile_to_item(profile));
+        xccdf_tailoring_free(tailoring);
+        if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    if(base_profile_id != NULL && !xccdf_profile_set_extends(profile, base_profile_id)){
+        xccdf_profile_free(xccdf_profile_to_item(profile));
+        xccdf_tailoring_free(tailoring);
+        if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    struct oscap_text *title = oscap_text_new();
+    bool title_ok = (title != NULL) && oscap_text_set_text(title, name) && oscap_text_set_lang(title, "fr") && xccdf_profile_add_title(profile, title);
+    if(!title_ok){
+        if(title != NULL) oscap_text_free(title);
+        xccdf_profile_free(xccdf_profile_to_item(profile));
+        xccdf_tailoring_free(tailoring);
+        if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+
+    // 5bis. description, optionnelle : même pattern que le titre, mais on ne
+    // fait rien si description est NULL ou vide (pas d'élément <description>
+    // ajouté au profil dans ce cas)
+    if(description != NULL && description[0] != '\0'){
+        struct oscap_text *desc = oscap_text_new();
+        bool desc_ok = (desc != NULL) && oscap_text_set_text(desc, description) && oscap_text_set_lang(desc, "fr") && xccdf_profile_add_description(profile, desc);
+        if(!desc_ok){
+            if(desc != NULL) oscap_text_free(desc);
+            xccdf_profile_free(xccdf_profile_to_item(profile));
+            xccdf_tailoring_free(tailoring);
+            if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+    }
+
+    // 6. selects : added -> selected=true, removed -> selected=false
+    for(int i=0; i<added_count; i++){
+        struct xccdf_select *sel = xccdf_select_new();
+        bool ok = (sel != NULL) && xccdf_select_set_item(sel, added_ids[i]) && xccdf_select_set_selected(sel, true) && xccdf_profile_add_select(profile, sel);
+        if(!ok){
+            if(sel != NULL) xccdf_select_free(sel);
+            xccdf_profile_free(xccdf_profile_to_item(profile));
+            xccdf_tailoring_free(tailoring);
+            if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+    }
+
+    for(int i=0; i<removed_count; i++){
+        struct xccdf_select *sel = xccdf_select_new();
+        bool ok = (sel != NULL) && xccdf_select_set_item(sel, removed_ids[i]) && xccdf_select_set_selected(sel, false) && xccdf_profile_add_select(profile, sel);
+        if(!ok){
+            if(sel != NULL) xccdf_select_free(sel);
+            xccdf_profile_free(xccdf_profile_to_item(profile));
+            xccdf_tailoring_free(tailoring);
+            if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+            xccdf_benchmark_free(benchmark);
+            ds_sds_session_free(ds_sds_session);
+            oscap_cleanup();
+            return -1;
+        }
+    }
+
+    // 7. attache le profil au tailoring et exporte
+    if(!xccdf_tailoring_add_profile(tailoring, profile)){
+        xccdf_profile_free(xccdf_profile_to_item(profile));
+        xccdf_tailoring_free(tailoring);
+        if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+        xccdf_benchmark_free(benchmark);
+        ds_sds_session_free(ds_sds_session);
+        oscap_cleanup();
+        return -1;
+    }
+    // à partir d'ici, tailoring possède profile - ne plus le free séparément
+
+    const struct xccdf_version_info *version_info = xccdf_benchmark_get_schema_version(benchmark);
+    int export_ret = xccdf_tailoring_export(tailoring, tailoring_path, version_info);
+
+    xccdf_tailoring_free(tailoring); // libère aussi le profil qu'il possède désormais
+    if(tailoring_source != NULL) oscap_source_free(tailoring_source);
+    xccdf_benchmark_free(benchmark);
+    ds_sds_session_free(ds_sds_session);
+    oscap_cleanup();
+
+    if(export_ret < 0){
+        return -1;
+    }
+
+    if(out_id_size > 0){
+        strncpy(out_new_id, new_id, out_id_size - 1);
+        out_new_id[out_id_size - 1] = '\0';
+    }
+
+    return 0;
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getAllRules, getAllRulesWithSelection, getSelectedRulesForProfile } from "./api";
 import type { Rule } from "./types";
 
@@ -7,6 +7,7 @@ interface UseRuleSelectionResult {
   selectedIds: Set<string>;
   loading: boolean;
   error: string | null;
+  hasChanges: boolean;
   toggleRule: (ruleId: string) => void;
   selectAll: () => void;
   deselectAll: () => void;
@@ -15,9 +16,8 @@ interface UseRuleSelectionResult {
 }
 
 export type SelectionMode =
-  | { kind: "view-profile"; profileId: string } // retrait uniquement, ne charge que les règles du profil
-  | { kind: "edit-profile"; profileId: string } // ajout + retrait, charge tout le benchmark avec l'état du profil
-  | { kind: "create-from-scratch" }; // charge tout le benchmark, rien pré-coché
+  | { kind: "view"; profileId: string }
+  | { kind: "edit"; profileId?: string };
 
 export function useRuleSelection(
   benchmarkId: string,
@@ -29,22 +29,19 @@ export function useRuleSelection(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // extrait à part pour avoir une dépendance stable et lisible dans useCallback
-  const profileId = mode.kind !== "create-from-scratch" ? mode.profileId : undefined;
+  const profileId = mode.profileId;
 
   const loadData = useCallback(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
 
-    let fetchRules: Promise<Rule[]>;
-    if (mode.kind === "view-profile") {
-      fetchRules = getSelectedRulesForProfile(benchmarkId, mode.profileId);
-    } else if (mode.kind === "edit-profile") {
-      fetchRules = getAllRulesWithSelection(benchmarkId, mode.profileId);
-    } else {
-      fetchRules = getAllRules(benchmarkId);
-    }
+    const fetchRules: Promise<Rule[]> =
+      mode.kind === "view"
+        ? getSelectedRulesForProfile(benchmarkId, mode.profileId)
+        : mode.profileId
+          ? getAllRulesWithSelection(benchmarkId, mode.profileId)
+          : getAllRules(benchmarkId);
 
     fetchRules
       .then((fetchedRules) => {
@@ -52,11 +49,9 @@ export function useRuleSelection(
         setRules(fetchedRules);
 
         let initialIds: Set<string>;
-        if (mode.kind === "view-profile") {
-          // cet endpoint ne renvoie déjà que les règles sélectionnées
+        if (mode.kind === "view") {
           initialIds = new Set(fetchedRules.map((r) => r.id));
-        } else if (mode.kind === "edit-profile") {
-          // toutes les règles sont chargées, seule une partie est cochée au départ
+        } else if (mode.profileId) {
           initialIds = new Set(fetchedRules.filter((r) => r.selected).map((r) => r.id));
         } else {
           initialIds = new Set();
@@ -121,11 +116,20 @@ export function useRuleSelection(
     return { added, removed };
   }, [selectedIds, originalIds]);
 
+  const hasChanges = useMemo(() => {
+    if (selectedIds.size !== originalIds.size) return true;
+    for (const id of selectedIds) {
+      if (!originalIds.has(id)) return true;
+    }
+    return false;
+  }, [selectedIds, originalIds]);
+
   return {
     rules,
     selectedIds,
     loading,
     error,
+    hasChanges,
     toggleRule,
     selectAll,
     deselectAll,

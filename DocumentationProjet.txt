@@ -1208,6 +1208,8 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 
 
+-Yesser zid kifech tfassa5 les profils de tailoring
+-Yesser fel recherche kona najmou nesta3mlou xccdf_benchmark_get_profile_by_id w xccdf_tailoring_get_profile_by_id zeda
 -Yesser hak 3andek fonction ta3mallek el benchmark w kol tnajem tsa8er fih barcha el code ama mouch tawa
 -Yesser fama mochkla fel backend ennou yparsi el benchmark 2 marat famech 3lech,rodou y3awed yab3ath el benchmark lel fonction ta3 list_tailoring_profiles walla al9a 7al e5er(ok)
 -Yesser tfa9ed ken rule wel res mte3ha 3andhom nafs el ID walla le(OUI rule et rule_result ont le meme ID)

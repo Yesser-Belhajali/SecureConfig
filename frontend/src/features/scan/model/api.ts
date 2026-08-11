@@ -1,4 +1,4 @@
-import type { Profile, ProfilesResponse, Rule, SaveProfilePayload } from "./types";
+import type { Profile, ProfilesResponse, Rule, SaveProfilePayload, SaveProfileResponse } from "./types";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -20,7 +20,10 @@ export async function getAllRules(benchmarkId: string): Promise<Rule[]> {
   return handleResponse<Rule[]>(response);
 }
 
-export async function getSelectedRulesForProfile(benchmarkId: string,profileId: string): Promise<Rule[]> {
+export async function getSelectedRulesForProfile(
+  benchmarkId: string,
+  profileId: string
+): Promise<Rule[]> {
   const response = await fetch(
     `${API_BASE_URL}/benchmarks/${benchmarkId}/profiles/${profileId}/rules`
   );
@@ -37,11 +40,18 @@ export async function getAllRulesWithSelection(
   return handleResponse<Rule[]>(response);
 }
 
-export async function saveProfileSelection(payload: SaveProfilePayload): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/profiles/custom`, {
+// POST /benchmarks/{benchmarkId}/profiles
+// benchmarkId est un paramètre séparé, pas un champ du payload : reste cohérent
+// avec les autres fonctions de ce fichier et avec extract_benchmark_id côté C,
+// qui parse déjà l'id de benchmark depuis l'URL.
+export async function saveProfileSelection(
+  benchmarkId: string,
+  payload: SaveProfilePayload
+): Promise<SaveProfileResponse> {
+  const response = await fetch(`${API_BASE_URL}/benchmarks/${benchmarkId}/profiles`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  await handleResponse<unknown>(response);
+  return handleResponse<SaveProfileResponse>(response);
 }
