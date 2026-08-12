@@ -6,6 +6,7 @@
 #include <cjson/cJSON.h>
 #include "scap_service.h"
 #include "json_utils.h"
+#include "scan_stream.h"
 
 #define PORT 8000
 
@@ -78,6 +79,19 @@ static int extract_profile_rules_request(const char *url, char *out_benchmark_id
     }
     if (url[pos] != '\0') {
         return 0; // ex: laisse passer /rules/all vers son propre handler
+    }
+    return 1;
+}
+
+static int extract_scan_request(const char *url, char *out_benchmark_id, size_t bid_size,
+                                  char *out_profile_id, size_t pid_size) {
+    int pos = 0;
+    if (sscanf(url, "/benchmarks/%63[^/]/profiles/%127[^/]/scan%n",
+               out_benchmark_id, out_profile_id, &pos) != 2) {
+        return 0;
+    }
+    if (url[pos] != '\0') {
+        return 0;
     }
     return 1;
 }
@@ -243,6 +257,30 @@ static enum MHD_Result handle_request(void *cls,
     char benchmark_id[64];
     char profile_id[128];
 
+    // GET /benchmarks/{id}/profiles/{id}/scan -> lance un scan et streame
+    // les résultats en SSE au fur et à mesure
+    if (strcmp(method, "GET") == 0 && extract_scan_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
+        struct scan_context *ctx = scan_context_new(benchmark_id, profile_id);
+        if (ctx == NULL) {
+            struct MHD_Response *err = MHD_create_response_from_buffer(0, "", MHD_RESPMEM_PERSISTENT);
+            enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+            MHD_destroy_response(err);
+            return ret;
+        }
+
+        scan_context_set_connection(ctx, connection);
+        scan_context_start(ctx);
+
+        struct MHD_Response *sse_response = MHD_create_response_from_callback(
+            MHD_SIZE_UNKNOWN, 1024, &scan_reader_callback, ctx, &scan_context_free);
+        MHD_add_response_header(sse_response, "Content-Type", "text/event-stream");
+        MHD_add_response_header(sse_response, "Cache-Control", "no-cache");
+        MHD_add_response_header(sse_response, "Access-Control-Allow-Origin", "*");
+        enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, sse_response);
+        MHD_destroy_response(sse_response);
+        return ret;
+    }
+
     if (strcmp(method, "GET") == 0 && strcmp(url, "/hello") == 0) {
         response_text = "{\"message\":\"Salut depuis le backend C!\"}";
         status_code = MHD_HTTP_OK;
@@ -362,7 +400,7 @@ static enum MHD_Result handle_request(void *cls,
 
 int main(void) {
     struct MHD_Daemon *daemon = MHD_start_daemon(
-        MHD_USE_INTERNAL_POLLING_THREAD,
+        MHD_USE_INTERNAL_POLLING_THREAD | MHD_ALLOW_SUSPEND_RESUME,
         PORT,
         NULL, NULL,
         &handle_request, NULL,

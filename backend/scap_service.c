@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include <xccdf_session.h>
 #include <xccdf_policy.h>
 #include <xccdf_benchmark.h>
@@ -812,8 +813,8 @@ static int generate_unique_id(const char *name, struct profile_list *native, int
 
     for (int suffix = 0; suffix < 1000; suffix++) {
         int n = (suffix == 0)
-            ? snprintf(out_id, out_size, "custom_%s", slug)
-            : snprintf(out_id, out_size, "custom_%s_%d", slug, suffix + 1);
+            ? snprintf(out_id, out_size, "xccdf_org.secureconfig_profile_%s", slug)
+            : snprintf(out_id, out_size, "xccdf_org.secureconfig_profile_%s_%d", slug, suffix + 1);
         if (n < 0 || (size_t)n >= out_size) return -1;
 
         if (!id_exists(out_id, native, native_count) && !id_exists(out_id, tailoring, tailoring_count)) {
@@ -895,7 +896,8 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
             oscap_cleanup();
             return -1;
         }
-    } else {
+    } 
+    else {
         tailoring = xccdf_tailoring_new();
         if(tailoring == NULL){
             xccdf_benchmark_free(benchmark);
@@ -904,7 +906,20 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
             return -1;
         }
         const char *bench_id = xccdf_benchmark_get_id(benchmark);
-        if(!xccdf_tailoring_set_id(tailoring, "tailoring") || !xccdf_tailoring_set_benchmark_ref(tailoring, bench_id)){
+
+        char tailoring_doc_id[300];
+        snprintf(tailoring_doc_id, sizeof(tailoring_doc_id), "xccdf_org.secureconfig_tailoring_%s", benchmark_id);
+
+        // format ISO 8601, cohérent avec xccdf_rule_result_get_time() vu dans les tests de scan
+        char version_time[32];
+        time_t now = time(NULL);
+        struct tm *tm_info = localtime(&now);
+        strftime(version_time, sizeof(version_time), "%Y-%m-%dT%H:%M:%S", tm_info);
+
+        if(!xccdf_tailoring_set_id(tailoring, tailoring_doc_id)
+        || !xccdf_tailoring_set_benchmark_ref(tailoring, bench_id)
+        || !xccdf_tailoring_set_version(tailoring, "1")
+        || !xccdf_tailoring_set_version_time(tailoring, version_time)){
             xccdf_tailoring_free(tailoring);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);

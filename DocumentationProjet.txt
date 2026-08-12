@@ -1205,9 +1205,14 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 -J'ai corrigé une erreir commise par l'IA ou il parse deux fois le meme benchmark
 
 
+--------------------------------------------------------------------------------------------12/08/2026-------------------------------------------------------------------------------
+
+-J'ai effectué les tests mémoire et tout est bien
 
 
 
+
+-Yesser zid el ID mta3 les profils fel affichage
 -Yesser zid kifech tfassa5 les profils de tailoring
 -Yesser fel recherche kona najmou nesta3mlou xccdf_benchmark_get_profile_by_id w xccdf_tailoring_get_profile_by_id zeda
 -Yesser hak 3andek fonction ta3mallek el benchmark w kol tnajem tsa8er fih barcha el code ama mouch tawa

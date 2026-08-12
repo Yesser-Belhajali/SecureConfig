@@ -95,6 +95,13 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
     });
   };
 
+  const goToScan = () => {
+    if (!profileId) return;
+    navigate(`/benchmarks/${benchmarkId}/profiles/${profileId}/scan`, {
+      state: { distributionId: location.state?.distributionId, version: location.state?.version },
+    });
+  };
+
   const canSave = !isViewOnly && hasChanges && profileName.trim().length > 0 && !saving;
 
   return (
@@ -112,12 +119,38 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
         <div className="rules-header-row">
           <h2>{isCreate ? "Créer un profil personnalisé" : isViewOnly ? "Consulter le profil" : "Modifier le profil"}</h2>
 
-          {isViewOnly && profileId && (
-            <button type="button" className="rules-edit-button" onClick={goToEdit}>
-              <span aria-hidden="true">✎</span>
-              Modifier ce profil
-            </button>
-          )}
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            {profileId && (
+              <button
+                type="button"
+                onClick={goToScan}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.55rem 1.1rem",
+                  borderRadius: "0.5rem",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  color: "#fff",
+                  background: "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+                  boxShadow: "0 8px 18px rgba(109,40,217,.28)",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <span aria-hidden="true">▶</span>
+                Lancer le scan
+              </button>
+            )}
+
+            {isViewOnly && profileId && (
+              <button type="button" className="rules-edit-button" onClick={goToEdit}>
+                <span aria-hidden="true">✎</span>
+                Modifier ce profil
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="rules-body">

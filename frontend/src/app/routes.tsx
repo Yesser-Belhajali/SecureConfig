@@ -5,6 +5,7 @@ import { Scan } from "../pages/Scan";
 import { About } from "../pages/About";
 import { ViewProfilePage, EditProfilePage, CreateProfilePage } from "../pages/ProfileRulesPage";
 import { NotFound } from "../pages/NotFound";
+import { ScanRunPage } from "../pages/ScanRunPage";
 
 export const router = createBrowserRouter([
   {
@@ -25,6 +26,10 @@ export const router = createBrowserRouter([
       {
         path: "benchmarks/:benchmarkId/create-profile",
         element: <CreateProfilePage />,
+      },
+      {
+        path: "/benchmarks/:benchmarkId/profiles/:profileId/scan",
+        element: <ScanRunPage />,
       },
       { path: "*", element: <NotFound /> },
     ],

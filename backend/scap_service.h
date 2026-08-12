@@ -2,6 +2,7 @@
 #define SCAP_SERVICE_H
 
 #include <stdbool.h>
+#include <xccdf_benchmark.h>
 
 struct profile_list{
     char *id;
@@ -18,6 +19,8 @@ struct rule_list{
     char *severity;
     bool selected;
 };
+
+const char *get_rule_title(struct xccdf_rule *rule);
 
 
 int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, int *out_profiles_count,struct profile_list **out_tailoring_profiles, int *out_tailoring_count);

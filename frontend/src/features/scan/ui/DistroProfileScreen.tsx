@@ -103,9 +103,9 @@ export function ScanScreen() {
                                 type="button"
                                 className="min-h-[42px] px-4 py-2.5 rounded-md text-xs font-semibold transition-colors"
                                 style={{
-                                  backgroundColor: isSelected ? '#8B5CF6' : 'transparent',
+                                  backgroundColor: isSelected ? item.accent : 'transparent',
                                   color: isSelected ? '#fff' : '#94A3B8',
-                                  border: isSelected ? '1px solid #A78BFA' : '1px solid rgba(255,255,255,0.13)',
+                                  border: isSelected ? `1px solid ${item.accent}` : '1px solid rgba(255,255,255,0.13)',
                                 }}
                                 onClick={() => toggleVersion(item.id, actualValue)}
                               >
@@ -159,8 +159,9 @@ export function ScanScreen() {
                       <input type="radio" name="profile" value={profile.id} checked={isSelected} onChange={() => setSelectedProfile(profile.id)} className="accent-[#8B5CF6] mt-0.5" />
                       <span className="flex-1 min-w-0">
                         <span className="block text-sm font-semibold text-[#E2E8F0]">{profile.title}</span>
+                        <span className="block text-[10px] font-mono text-[#64748B] mt-0.5 truncate">{profile.id}</span>
                         <span className="block text-xs text-[#64748B] mt-1 leading-relaxed">
-                          {isSelected && profile.description ? profile.description : "Profil de conformité prêt à personnaliser"}
+                          {isSelected && profile.description ? profile.description : ""}
                         </span>
                       </span>
                       <span className="text-[#A78BFA] text-sm mt-0.5" aria-hidden="true">{isSelected ? '✓' : '→'}</span>
@@ -182,6 +183,7 @@ export function ScanScreen() {
                           <input type="radio" name="profile" value={profile.id} checked={isSelected} onChange={() => setSelectedProfile(profile.id)} className="accent-[#8B5CF6] mt-0.5" />
                           <span className="flex-1 min-w-0">
                             <span className="block text-sm font-semibold text-[#E2E8F0]">{profile.title}</span>
+                            <span className="block text-[10px] font-mono text-[#64748B] mt-0.5 truncate">{profile.id}</span>
                             {isSelected && profile.description && (
                               <span className="block text-xs text-[#94A3B8] mt-1.5 leading-relaxed">{profile.description}</span>
                             )}
