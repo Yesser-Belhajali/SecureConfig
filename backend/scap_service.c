@@ -77,6 +77,19 @@ const char *get_rule_rationale(struct xccdf_rule *rule){
     return rationale;
 }
 
+const char *get_rule_question(struct xccdf_rule *rule){
+    struct oscap_text_iterator *question_it=xccdf_rule_get_question(rule);
+    const char *question=NULL;
+    if(question_it!=NULL && oscap_text_iterator_has_more(question_it)){
+        struct oscap_text *text=oscap_text_iterator_next(question_it);
+        question=oscap_text_get_text(text);
+    }
+    if(question_it!=NULL){
+        oscap_text_iterator_free(question_it);
+    }
+    return question;
+}
+
 const char *get_rule_severity(struct xccdf_rule *rule){
     const char *rule_severity="Not Defined";
     xccdf_level_t severity_type=xccdf_rule_get_severity(rule);
@@ -302,12 +315,10 @@ int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, 
         return -1;
     }
 
-    oscap_init();
 
     struct ds_sds_session *ds_sds_session = NULL;
     struct xccdf_benchmark *benchmark = NULL;
     if(load_benchmark_from_ds(ds_path, &ds_sds_session, &benchmark) != 0){
-        oscap_cleanup();
         return -1;
     }
 
@@ -315,7 +326,6 @@ int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, 
     if(profile_iterator == NULL){
         xccdf_benchmark_free(benchmark);
         ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
         return -1;
     }
 
@@ -326,7 +336,6 @@ int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, 
     if(profiles_count < 0){
         xccdf_benchmark_free(benchmark);
         ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
         return -1;
     }
 
@@ -339,7 +348,6 @@ int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, 
             free_profile_list(profiles, profiles_count);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
 
@@ -349,7 +357,6 @@ int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, 
             free_profile_list(profiles, profiles_count);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
 
@@ -360,7 +367,6 @@ int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, 
             free_profile_list(profiles, profiles_count);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
 
@@ -373,14 +379,12 @@ int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, 
             free_profile_list(profiles, profiles_count);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
     }
 
     xccdf_benchmark_free(benchmark);
     ds_sds_session_free(ds_sds_session);
-    oscap_cleanup();
 
     *out_profiles = profiles;
     *out_profiles_count = profiles_count;
@@ -396,6 +400,169 @@ void free_profiles_for_distro(struct profile_list *profiles, int profiles_count,
 }
 
 
+static void free_references(struct rule_reference *refs, int count){
+    if(refs==NULL) return;
+    for(int i=0;i<count;i++){
+        free(refs[i].href);
+        free(refs[i].text);
+    }
+    free(refs);
+}
+
+static int collect_references(struct xccdf_rule *rule, struct rule_reference **out_refs, int *out_count){
+    *out_refs=NULL;
+    *out_count=0;
+
+    struct oscap_reference_iterator *it=xccdf_rule_get_references(rule);
+    if(it==NULL){
+        return 0;
+    }
+
+    struct rule_reference *refs=NULL;
+    int count=0;
+
+    while(oscap_reference_iterator_has_more(it)){
+        struct oscap_reference *ref=oscap_reference_iterator_next(it);
+        const char *href=oscap_reference_get_href(ref);
+        // pour une référence non-dublincore, le contenu texte brut est stocké
+        // dans "title" côté openscap (confirmé dans reference.c) — c'est bien
+        // le texte affiché entre les balises <xccdf:reference>...</xccdf:reference>
+        const char *text=oscap_reference_get_title(ref);
+
+        struct rule_reference *tmp=realloc(refs,(count+1)*sizeof(struct rule_reference));
+        if(tmp==NULL){
+            free_references(refs,count);
+            oscap_reference_iterator_free(it);
+            return -1;
+        }
+        refs=tmp;
+
+        refs[count].href = href ? strdup(href) : NULL;
+        refs[count].text = text ? strdup(text) : NULL;
+
+        if((href!=NULL && refs[count].href==NULL) || (text!=NULL && refs[count].text==NULL)){
+            free(refs[count].href);
+            free(refs[count].text);
+            free_references(refs,count);
+            oscap_reference_iterator_free(it);
+            return -1;
+        }
+        count++;
+    }
+
+    oscap_reference_iterator_free(it);
+    *out_refs=refs;
+    *out_count=count;
+    return 0;
+}
+
+static void free_fixes(struct rule_fix *fixes, int count){
+    if(fixes==NULL) return;
+    for(int i=0;i<count;i++){
+        free(fixes[i].system);
+        free(fixes[i].content);
+    }
+    free(fixes);
+}
+
+static int collect_fixes(struct xccdf_rule *rule, struct rule_fix **out_fixes, int *out_count){
+    *out_fixes=NULL;
+    *out_count=0;
+
+    struct xccdf_fix_iterator *it=xccdf_rule_get_fixes(rule);
+    if(it==NULL){
+        return 0;
+    }
+
+    struct rule_fix *fixes=NULL;
+    int count=0;
+
+    while(xccdf_fix_iterator_has_more(it)){
+        struct xccdf_fix *fix=xccdf_fix_iterator_next(it);
+        const char *system=xccdf_fix_get_system(fix);
+        const char *content=xccdf_fix_get_content(fix); // const char* direct, pas d'oscap_text ici
+
+        struct rule_fix *tmp=realloc(fixes,(count+1)*sizeof(struct rule_fix));
+        if(tmp==NULL){
+            free_fixes(fixes,count);
+            xccdf_fix_iterator_free(it);
+            return -1;
+        }
+        fixes=tmp;
+
+        fixes[count].system = system ? strdup(system) : NULL;
+        fixes[count].content = content ? strdup(content) : NULL;
+
+        if((system!=NULL && fixes[count].system==NULL) || (content!=NULL && fixes[count].content==NULL)){
+            free(fixes[count].system);
+            free(fixes[count].content);
+            free_fixes(fixes,count);
+            xccdf_fix_iterator_free(it);
+            return -1;
+        }
+        count++;
+    }
+
+    xccdf_fix_iterator_free(it);
+    *out_fixes=fixes;
+    *out_count=count;
+    return 0;
+}
+
+// libère tous les champs d'UNE entrée rule_list (mais pas le pointeur lui-même,
+// qui vit dans un tableau géré par realloc côté appelant)
+static void free_rule_entry_fields(struct rule_list *r){
+    free(r->id);
+    free(r->title);
+    free(r->description);
+    free(r->rationale);
+    free(r->severity);
+    free(r->question);
+    free_references(r->references, r->references_count);
+    free_fixes(r->fixes, r->fixes_count);
+}
+
+// remplit une entrée rule_list à partir d'une xccdf_rule; sur échec, *out est
+// nettoyé et remis à zéro par free_rule_entry_fields, donc l'appelant peut
+// simplement traiter l'entrée comme jamais remplie et ne PAS incrémenter count
+static int fill_rule_entry(struct xccdf_rule *rule, bool selected, struct rule_list *out){
+    memset(out, 0, sizeof(*out));
+
+    const char *id=xccdf_rule_get_id(rule);
+    const char *title=get_rule_title(rule);
+    const char *description=get_rule_description(rule);
+    const char *rationale=get_rule_rationale(rule);
+    const char *severity=get_rule_severity(rule);
+    const char *question=get_rule_question(rule);
+
+    out->id = id ? strdup(id) : NULL;
+    out->title = title ? strdup(title) : NULL;
+    out->description = description ? strdup(description) : NULL;
+    out->rationale = rationale ? strdup(rationale) : NULL;
+    out->severity = severity ? strdup(severity) : NULL;
+    out->question = question ? strdup(question) : NULL;
+    out->selected = selected;
+
+    if((id!=NULL && out->id==NULL) || (title!=NULL && out->title==NULL) ||
+       (description!=NULL && out->description==NULL) || (rationale!=NULL && out->rationale==NULL) ||
+       (severity!=NULL && out->severity==NULL) || (question!=NULL && out->question==NULL)){
+        free_rule_entry_fields(out);
+        return -1;
+    }
+
+    if(collect_references(rule, &out->references, &out->references_count) != 0){
+        free_rule_entry_fields(out);
+        return -1;
+    }
+    if(collect_fixes(rule, &out->fixes, &out->fixes_count) != 0){
+        free_rule_entry_fields(out);
+        return -1;
+    }
+
+    return 0;
+}
+
+
 
 
 void free_rule_info_list(struct rule_list *rules,int count){
@@ -403,11 +570,7 @@ void free_rule_info_list(struct rule_list *rules,int count){
         return;
     }
     for(int i=0;i<count;i++){
-        free(rules[i].id);
-        free(rules[i].title);
-        free(rules[i].description);
-        free(rules[i].rationale);
-        free(rules[i].severity);
+        free_rule_entry_fields(&rules[i]);
     }
     free(rules);
 }
@@ -419,12 +582,10 @@ int list_rules_for_ds(const char *ds_path,struct rule_list **out_rules){
     }
     *out_rules=NULL;
 
-    oscap_init();
 
     struct ds_sds_session *ds_sds_session = NULL;
     struct xccdf_benchmark *benchmark = NULL;
     if(load_benchmark_from_ds(ds_path, &ds_sds_session, &benchmark) != 0){
-        oscap_cleanup();
         return -1;
     }
 
@@ -432,7 +593,6 @@ int list_rules_for_ds(const char *ds_path,struct rule_list **out_rules){
     if(head==NULL){
         xccdf_benchmark_free(benchmark);
         ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
         return -1;
     }
 
@@ -447,35 +607,15 @@ int list_rules_for_ds(const char *ds_path,struct rule_list **out_rules){
             free_rule_list(head);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
         rules=tmp;
 
-        const char *id=xccdf_rule_get_id(iter->rule);
-        const char *title=get_rule_title(iter->rule);
-        const char *description=get_rule_description(iter->rule);
-        const char *rationale=get_rule_rationale(iter->rule);
-        const char *severity=get_rule_severity(iter->rule);
-
-        rules[count].id = id ? strdup(id) : NULL;
-        rules[count].title = title ? strdup(title) : NULL;
-        rules[count].description = description ? strdup(description) : NULL;
-        rules[count].rationale = rationale ? strdup(rationale) : NULL;
-        rules[count].severity = severity ? strdup(severity) : NULL;
-        rules[count].selected = false;
-
-        if((id !=NULL && rules[count].id==NULL) || (title!=NULL && rules[count].title==NULL) || (description!=NULL && rules[count].description==NULL) || (rationale!=NULL && rules[count].rationale==NULL) || (severity!=NULL && rules[count].severity==NULL)){
-            free(rules[count].id);
-            free(rules[count].title);
-            free(rules[count].description);
-            free(rules[count].rationale);
-            free(rules[count].severity);
+        if(fill_rule_entry(iter->rule, false, &rules[count]) != 0){
             free_rule_info_list(rules,count);
             free_rule_list(head);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
         count++;
@@ -485,7 +625,6 @@ int list_rules_for_ds(const char *ds_path,struct rule_list **out_rules){
     free_rule_list(head);
     xccdf_benchmark_free(benchmark);
     ds_sds_session_free(ds_sds_session);
-    oscap_cleanup();
 
     *out_rules=rules;
     return count;
@@ -597,18 +736,15 @@ int selected_rules_for_profile(const char *benchmark_id, const char *profile_id,
     }
     *out_rules=NULL;
 
-    oscap_init();
 
     struct resolved_profile_context ctx;
     if (resolve_profile_context(benchmark_id, profile_id, &ctx) != 0) {
-        oscap_cleanup();
         return -1;
     }
 
     struct xccdf_policy *policy=xccdf_policy_new(ctx.policy_model,ctx.profile);
     if(policy==NULL){
         free_profile_context(&ctx);
-        oscap_cleanup();
         return -1;
     }
 
@@ -616,7 +752,6 @@ int selected_rules_for_profile(const char *benchmark_id, const char *profile_id,
     if(select_iterator==NULL){
         xccdf_policy_free(policy);
         free_profile_context(&ctx);
-        oscap_cleanup();
         return -1;
     }
 
@@ -632,16 +767,10 @@ int selected_rules_for_profile(const char *benchmark_id, const char *profile_id,
             xccdf_select_iterator_free(select_iterator);
             xccdf_policy_free(policy);
             free_profile_context(&ctx);
-            oscap_cleanup();
             return -1;
         }
 
         struct xccdf_rule *rule=xccdf_item_to_rule(item);
-        const char *id=xccdf_rule_get_id(rule);
-        const char *title=get_rule_title(rule);
-        const char *description=get_rule_description(rule);
-        const char *rationale=get_rule_rationale(rule);
-        const char *severity=get_rule_severity(rule);
 
         struct rule_list *tmp = realloc(rules, (count + 1) * sizeof(struct rule_list));
         if (tmp == NULL) {
@@ -649,29 +778,15 @@ int selected_rules_for_profile(const char *benchmark_id, const char *profile_id,
             xccdf_select_iterator_free(select_iterator);
             xccdf_policy_free(policy);
             free_profile_context(&ctx);
-            oscap_cleanup();
             return -1;
         }
         rules = tmp;
 
-        rules[count].id = id ? strdup(id) : NULL;
-        rules[count].title = title ? strdup(title) : NULL;
-        rules[count].description = description ? strdup(description) : NULL;
-        rules[count].rationale = rationale ? strdup(rationale) : NULL;
-        rules[count].severity = severity ? strdup(severity) : NULL;
-        rules[count].selected = true;
-
-        if((id !=NULL && rules[count].id==NULL) || (title!=NULL && rules[count].title==NULL) || (description!=NULL && rules[count].description==NULL) || (rationale!=NULL && rules[count].rationale==NULL) || (severity!=NULL && rules[count].severity==NULL)){
-            free(rules[count].id);
-            free(rules[count].title);
-            free(rules[count].description);
-            free(rules[count].rationale);
-            free(rules[count].severity);
-            free_rule_info_list(rules,count);
+        if(fill_rule_entry(rule, true, &rules[count]) != 0){
+            free_rule_info_list(rules, count);
             xccdf_select_iterator_free(select_iterator);
             xccdf_policy_free(policy);
             free_profile_context(&ctx);
-            oscap_cleanup();
             return -1;
         }
         count++;
@@ -680,7 +795,6 @@ int selected_rules_for_profile(const char *benchmark_id, const char *profile_id,
     xccdf_select_iterator_free(select_iterator);
     xccdf_policy_free(policy);
     free_profile_context(&ctx);
-    oscap_cleanup();
 
     *out_rules=rules;
     return count;
@@ -692,18 +806,15 @@ int all_rules_with_selection_for_profile(const char *benchmark_id, const char *p
     }
     *out_rules=NULL;
 
-    oscap_init();
 
     struct resolved_profile_context ctx;
     if (resolve_profile_context(benchmark_id, profile_id, &ctx) != 0) {
-        oscap_cleanup();
         return -1;
     }
 
     struct xccdf_policy *policy=xccdf_policy_new(ctx.policy_model,ctx.profile);
     if(policy==NULL){
         free_profile_context(&ctx);
-        oscap_cleanup();
         return -1;
     }
 
@@ -711,7 +822,6 @@ int all_rules_with_selection_for_profile(const char *benchmark_id, const char *p
     if(head==NULL){
         xccdf_policy_free(policy);
         free_profile_context(&ctx);
-        oscap_cleanup();
         return -1;
     }
 
@@ -726,36 +836,18 @@ int all_rules_with_selection_for_profile(const char *benchmark_id, const char *p
             free_rule_list(head);
             xccdf_policy_free(policy);
             free_profile_context(&ctx);
-            oscap_cleanup();
             return -1;
         }
         rules=tmp;
 
         const char *id=xccdf_rule_get_id(iter->rule);
-        const char *title=get_rule_title(iter->rule);
-        const char *description=get_rule_description(iter->rule);
-        const char *rationale=get_rule_rationale(iter->rule);
-        const char *severity=get_rule_severity(iter->rule);
         bool selected=xccdf_policy_is_item_selected(policy,id);
 
-        rules[count].id = id ? strdup(id) : NULL;
-        rules[count].title = title ? strdup(title) : NULL;
-        rules[count].description = description ? strdup(description) : NULL;
-        rules[count].rationale = rationale ? strdup(rationale) : NULL;
-        rules[count].severity = severity ? strdup(severity) : NULL;
-        rules[count].selected = selected;
-
-        if((id !=NULL && rules[count].id==NULL) || (title!=NULL && rules[count].title==NULL) || (description!=NULL && rules[count].description==NULL) || (rationale!=NULL && rules[count].rationale==NULL) || (severity!=NULL && rules[count].severity==NULL)){
-            free(rules[count].id);
-            free(rules[count].title);
-            free(rules[count].description);
-            free(rules[count].rationale);
-            free(rules[count].severity);
+        if(fill_rule_entry(iter->rule, selected, &rules[count]) != 0){
             free_rule_info_list(rules,count);
             free_rule_list(head);
             xccdf_policy_free(policy);
             free_profile_context(&ctx);
-            oscap_cleanup();
             return -1;
         }
         count++;
@@ -765,7 +857,6 @@ int all_rules_with_selection_for_profile(const char *benchmark_id, const char *p
     free_rule_list(head);
     xccdf_policy_free(policy);
     free_profile_context(&ctx);
-    oscap_cleanup();
 
     *out_rules=rules;
     return count;
@@ -866,12 +957,10 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
         return -1;
     }
 
-    oscap_init();
 
     struct ds_sds_session *ds_sds_session=NULL;
     struct xccdf_benchmark *benchmark=NULL;
     if(load_benchmark_from_ds(ds_path,&ds_sds_session,&benchmark)!=0){
-        oscap_cleanup();
         return -1;
     }
 
@@ -885,7 +974,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
         if(tailoring_source == NULL){
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
         tailoring = xccdf_tailoring_import_source(tailoring_source, benchmark);
@@ -893,7 +981,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
             oscap_source_free(tailoring_source);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
     } 
@@ -902,7 +989,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
         if(tailoring == NULL){
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
         const char *bench_id = xccdf_benchmark_get_id(benchmark);
@@ -923,7 +1009,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
             xccdf_tailoring_free(tailoring);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
     }
@@ -941,7 +1026,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
             if(tailoring_source != NULL) oscap_source_free(tailoring_source);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -3;
         }
     }
@@ -953,7 +1037,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
         if(tailoring_source != NULL) oscap_source_free(tailoring_source);
         xccdf_benchmark_free(benchmark);
         ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
         return -1;
     }
 
@@ -963,7 +1046,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
         if(tailoring_source != NULL) oscap_source_free(tailoring_source);
         xccdf_benchmark_free(benchmark);
         ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
         return -1;
     }
 
@@ -973,7 +1055,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
         if(tailoring_source != NULL) oscap_source_free(tailoring_source);
         xccdf_benchmark_free(benchmark);
         ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
         return -1;
     }
 
@@ -986,7 +1067,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
         if(tailoring_source != NULL) oscap_source_free(tailoring_source);
         xccdf_benchmark_free(benchmark);
         ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
         return -1;
     }
 
@@ -1003,7 +1083,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
             if(tailoring_source != NULL) oscap_source_free(tailoring_source);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
     }
@@ -1019,7 +1098,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
             if(tailoring_source != NULL) oscap_source_free(tailoring_source);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
     }
@@ -1034,7 +1112,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
             if(tailoring_source != NULL) oscap_source_free(tailoring_source);
             xccdf_benchmark_free(benchmark);
             ds_sds_session_free(ds_sds_session);
-            oscap_cleanup();
             return -1;
         }
     }
@@ -1046,7 +1123,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
         if(tailoring_source != NULL) oscap_source_free(tailoring_source);
         xccdf_benchmark_free(benchmark);
         ds_sds_session_free(ds_sds_session);
-        oscap_cleanup();
         return -1;
     }
     // à partir d'ici, tailoring possède profile - ne plus le free séparément
@@ -1058,7 +1134,6 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
     if(tailoring_source != NULL) oscap_source_free(tailoring_source);
     xccdf_benchmark_free(benchmark);
     ds_sds_session_free(ds_sds_session);
-    oscap_cleanup();
 
     if(export_ret < 0){
         return -1;

@@ -399,6 +399,7 @@ static enum MHD_Result handle_request(void *cls,
 }
 
 int main(void) {
+    oscap_init();
     struct MHD_Daemon *daemon = MHD_start_daemon(
         MHD_USE_INTERNAL_POLLING_THREAD | MHD_ALLOW_SUSPEND_RESUME,
         PORT,
@@ -416,6 +417,11 @@ int main(void) {
     printf("Appuie sur Entrée pour arrêter...\n");
     getchar();
 
+    printf("Arrêt en cours (attente des scans actifs)...\n");
+    scan_stream_shutdown();
+
     MHD_stop_daemon(daemon);
+
+    oscap_cleanup();
     return 0;
 }

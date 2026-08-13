@@ -34,6 +34,28 @@ char *profiles_and_tailoring_to_json(struct profile_list *profiles, int profiles
     return json_str;
 }
 
+static void append_references_array(cJSON *item, struct rule_reference *refs, int count){
+    cJSON *array = cJSON_CreateArray();
+    for(int i=0;i<count;i++){
+        cJSON *ref_item = cJSON_CreateObject();
+        cJSON_AddStringToObject(ref_item, "href", refs[i].href ? refs[i].href : "");
+        cJSON_AddStringToObject(ref_item, "text", refs[i].text ? refs[i].text : "");
+        cJSON_AddItemToArray(array, ref_item);
+    }
+    cJSON_AddItemToObject(item, "references", array);
+}
+
+static void append_fixes_array(cJSON *item, struct rule_fix *fixes, int count){
+    cJSON *array = cJSON_CreateArray();
+    for(int i=0;i<count;i++){
+        cJSON *fix_item = cJSON_CreateObject();
+        cJSON_AddStringToObject(fix_item, "system", fixes[i].system ? fixes[i].system : "");
+        cJSON_AddStringToObject(fix_item, "content", fixes[i].content ? fixes[i].content : "");
+        cJSON_AddItemToArray(array, fix_item);
+    }
+    cJSON_AddItemToObject(item, "fixes", array);
+}
+
 char *rules_to_json(struct rule_list *rules, int count) {
     cJSON *root = cJSON_CreateArray();
     if (root == NULL) return NULL;
@@ -48,6 +70,9 @@ char *rules_to_json(struct rule_list *rules, int count) {
         cJSON_AddStringToObject(item, "rationale", rules[i].rationale ? rules[i].rationale : "");
         cJSON_AddStringToObject(item, "severity", rules[i].severity ? rules[i].severity : "");
         cJSON_AddBoolToObject(item, "selected", rules[i].selected);
+        cJSON_AddStringToObject(item, "question", rules[i].question ? rules[i].question : "");
+        append_references_array(item, rules[i].references, rules[i].references_count);
+        append_fixes_array(item, rules[i].fixes, rules[i].fixes_count);
 
         cJSON_AddItemToArray(root, item);
     }

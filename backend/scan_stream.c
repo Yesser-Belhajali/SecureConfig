@@ -12,13 +12,18 @@
 
 static void push_event(struct scan_context *ctx, char *json) {
     pthread_mutex_lock(&ctx->mutex);
+    if (ctx->cancelled) {
+        pthread_mutex_unlock(&ctx->mutex);
+        free(json); // personne ne lira cet event, on le jette
+        return;
+    }
     if (ctx->count == ctx->capacity) {
         int new_cap = ctx->capacity == 0 ? 16 : ctx->capacity * 2;
         char **tmp = realloc(ctx->items, new_cap * sizeof(char *));
         if (tmp == NULL) {
             pthread_mutex_unlock(&ctx->mutex);
             free(json);
-            return; // événement perdu plutôt que crash ; le score final reste correct
+            return;
         }
         ctx->items = tmp;
         ctx->capacity = new_cap;
@@ -29,8 +34,110 @@ static void push_event(struct scan_context *ctx, char *json) {
     MHD_resume_connection(ctx->connection);
 }
 
+
+static pthread_mutex_t g_scan_serialize_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
+static pthread_mutex_t g_registry_mutex = PTHREAD_MUTEX_INITIALIZER;
+static struct scan_context *g_registry_head = NULL;
+
+static void registry_add(struct scan_context *ctx) {
+    pthread_mutex_lock(&g_registry_mutex);
+    ctx->registry_prev = NULL;
+    ctx->registry_next = g_registry_head;
+    if (g_registry_head != NULL) {
+        g_registry_head->registry_prev = ctx;
+    }
+    g_registry_head = ctx;
+    pthread_mutex_unlock(&g_registry_mutex);
+}
+
+static void registry_remove(struct scan_context *ctx) {
+    pthread_mutex_lock(&g_registry_mutex);
+    if (ctx->registry_prev != NULL) {
+        ctx->registry_prev->registry_next = ctx->registry_next;
+    } else {
+        g_registry_head = ctx->registry_next;
+    }
+    if (ctx->registry_next != NULL) {
+        ctx->registry_next->registry_prev = ctx->registry_prev;
+    }
+    pthread_mutex_unlock(&g_registry_mutex);
+}
+
+static void destroy_ctx(struct scan_context *ctx) {
+    registry_remove(ctx);
+    for (int i = 0; i < ctx->count; i++) free(ctx->items[i]);
+    free(ctx->items);
+    pthread_mutex_destroy(&ctx->mutex);
+    free(ctx);
+}
+
+// appelé en fin de producer_main, quel que soit le chemin (succès ou fail)
+static void producer_finish(struct scan_context *ctx) {
+    pthread_mutex_lock(&ctx->mutex);
+    bool client_gone = ctx->cancelled;
+    int remaining = --ctx->ref_count;
+    pthread_mutex_unlock(&ctx->mutex);
+
+    if (remaining == 0) {
+        // MHD a déjà relâché sa référence (client parti) : personne ne
+        // fera pthread_join sur nous, il faut se détacher nous-mêmes.
+        pthread_detach(ctx->producer_thread);
+        destroy_ctx(ctx);
+        return;
+    }
+
+    if (!client_gone) {
+        MHD_resume_connection(ctx->connection);
+    }
+}
+
+
+void scan_stream_shutdown(void) {
+    for (;;) {
+        pthread_mutex_lock(&g_registry_mutex);
+        struct scan_context *ctx = g_registry_head;
+        pthread_mutex_unlock(&g_registry_mutex);
+
+        if (ctx == NULL) break;
+
+        pthread_mutex_lock(&ctx->mutex);
+        ctx->cancelled = true;
+        bool needs_resume = !ctx->finished && !ctx->failed;
+        pthread_mutex_unlock(&ctx->mutex);
+
+        if (needs_resume) {
+            MHD_resume_connection(ctx->connection);
+        }
+
+        // Attend que ce contexte précis quitte le registre (donc que
+        // destroy_ctx() ait tourné) avant de regarder le suivant.
+        for (;;) {
+            pthread_mutex_lock(&g_registry_mutex);
+            struct scan_context *cur = g_registry_head;
+            bool found = false;
+            while (cur != NULL) {
+                if (cur == ctx) { found = true; break; }
+                cur = cur->registry_next;
+            }
+            pthread_mutex_unlock(&g_registry_mutex);
+            if (!found) break;
+            usleep(1000);
+        }
+    }
+}
+
 static int scan_start_callback(struct xccdf_rule *rule, void *usr) {
     struct scan_context *ctx = usr;
+
+    pthread_mutex_lock(&ctx->mutex);
+    bool cancelled = ctx->cancelled;
+    pthread_mutex_unlock(&ctx->mutex);
+
+    if (cancelled) {
+        return 1; // signal d'arrêt propre, propagé jusqu'à xccdf_policy_evaluate
+    }
 
     const char *rule_id = xccdf_rule_get_id(rule);
     bool selected = xccdf_policy_is_item_selected(ctx->policy, rule_id);
@@ -94,10 +201,10 @@ static int scan_output_callback(struct xccdf_rule_result *rule_result, void *usr
     return 0;
 }
 
+
 static void *producer_main(void *arg) {
     struct scan_context *ctx = arg;
-
-    oscap_init();
+    pthread_mutex_lock(&g_scan_serialize_mutex);
 
     char ds_path[256];
     snprintf(ds_path, sizeof(ds_path), "../data/%s/ssg-%s-ds.xml", ctx->benchmark_id, ctx->benchmark_id);
@@ -191,16 +298,17 @@ static void *producer_main(void *arg) {
     fprintf(stderr, "[scan] SUCCESS: %d events pushed\n", ctx->count);
 
     xccdf_session_free(session);
-    oscap_cleanup();
-    MHD_resume_connection(ctx->connection);
+    pthread_mutex_unlock(&g_scan_serialize_mutex);   // <-- AJOUT
+    producer_finish(ctx);
     return NULL;
 
 fail:
+    pthread_mutex_unlock(&g_scan_serialize_mutex);
+
     pthread_mutex_lock(&ctx->mutex);
     ctx->failed = true;
     pthread_mutex_unlock(&ctx->mutex);
-    oscap_cleanup();
-    MHD_resume_connection(ctx->connection);
+    producer_finish(ctx);
     return NULL;
 }
 
@@ -208,8 +316,10 @@ struct scan_context *scan_context_new(const char *benchmark_id, const char *prof
     struct scan_context *ctx = calloc(1, sizeof(struct scan_context));
     if (ctx == NULL) return NULL;
     pthread_mutex_init(&ctx->mutex, NULL);
+    ctx->ref_count = 2;
     strncpy(ctx->benchmark_id, benchmark_id, sizeof(ctx->benchmark_id) - 1);
     strncpy(ctx->profile_id, profile_id, sizeof(ctx->profile_id) - 1);
+    registry_add(ctx);
     return ctx;
 }
 
@@ -225,11 +335,20 @@ void scan_context_free(void *cls) {
     struct scan_context *ctx = cls;
     if (ctx == NULL) return;
 
-    pthread_join(ctx->producer_thread, NULL);
-    for (int i = 0; i < ctx->count; i++) free(ctx->items[i]);
-    free(ctx->items);
-    pthread_mutex_destroy(&ctx->mutex);
-    free(ctx);
+    pthread_mutex_lock(&ctx->mutex);
+    ctx->cancelled = true;
+    int remaining = --ctx->ref_count;
+    pthread_mutex_unlock(&ctx->mutex);
+
+    if (remaining == 0) {
+        // le producer a déjà fini et laissé sa référence : il ne reste
+        // qu'à le rejoindre (quasi instantané, il a déjà terminé) et
+        // libérer la mémoire.
+        pthread_join(ctx->producer_thread, NULL);
+        destroy_ctx(ctx);
+    }
+    // sinon : le scan tourne encore. On repart immédiatement sans bloquer
+    // le thread MHD — producer_finish() fera le ménage à la fin du scan.
 }
 
 ssize_t scan_reader_callback(void *cls, uint64_t pos, char *buf, size_t max) {

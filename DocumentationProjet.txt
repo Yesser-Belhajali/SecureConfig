@@ -1210,6 +1210,12 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 -J'ai effectué les tests mémoire et tout est bien
 
 
+--------------------------------------------------------------------------------------------13/08/2026-------------------------------------------------------------------------------
+
+-Je suis en train de corriger les problemes de concurrence et des threads
+
+
+
 
 
 -Yesser zid el ID mta3 les profils fel affichage

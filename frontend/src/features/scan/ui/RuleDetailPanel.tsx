@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { Rule } from "../model/types";
+import { groupReferencesByHref } from "../model/referenceLabels";
 
 interface RuleDetailPanelProps {
   rule: Rule | null;
@@ -47,6 +48,53 @@ export default function RuleDetailPanel({ rule, onClose }: RuleDetailPanelProps)
 
             <dt>Justification</dt>
             <dd>{rule.rationale || "—"}</dd>
+
+            {rule.question && (
+              <>
+                <dt>Question</dt>
+                <dd>{rule.question}</dd>
+              </>
+            )}
+
+            {rule.fixes.length > 0 && (
+              <>
+                <dt>Remédiation</dt>
+                <dd>
+                  <ul className="rule-fix-list">
+                    {rule.fixes.map((fix, i) => (
+                      <li key={i} className="rule-fix-item">
+                        <div className="rule-fix-system">{fixSystemLabel(fix.system)}</div>
+                        <pre className="rule-fix-content">{fix.content}</pre>
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </>
+            )}
+
+            {rule.references.length > 0 && (
+              <>
+                <dt>Références</dt>
+                <dd>
+                  <table className="rule-reference-table">
+                    <tbody>
+                      {groupReferencesByHref(rule.references).map((group, i) => (
+                        <tr key={i}>
+                          <td className="rule-reference-label">
+                            {group.href ? (
+                              <a href={group.href} target="_blank" rel="noreferrer">{group.label}</a>
+                            ) : (
+                              group.label
+                            )}
+                          </td>
+                          <td className="rule-reference-values">{group.values.join(", ") || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </dd>
+              </>
+            )}
           </dl>
         </>
       )}
@@ -55,3 +103,11 @@ export default function RuleDetailPanel({ rule, onClose }: RuleDetailPanelProps)
 }
 
 const SEVERITY_CLASS_FALLBACK = "";
+
+function fixSystemLabel(system: string): string {
+  if (system.includes("ansible")) return "Ansible";
+  if (system.includes("puppet")) return "Puppet";
+  if (system.includes("anaconda")) return "Anaconda (kickstart)";
+  if (system.includes("bash") || system.includes(":sh")) return "Script shell";
+  return system || "Script";
+}

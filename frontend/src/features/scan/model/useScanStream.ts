@@ -22,9 +22,13 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const esRef = useRef<EventSource | null>(null);
   const titlesRef = useRef<Map<string, string>>(new Map());
+  const startingRef = useRef(false);
+  const mountedRef = useRef(false);
 
   const start = async () => {
-    if (esRef.current) return;
+    if (esRef.current || startingRef.current) return;
+    startingRef.current = true; // verrou synchrone, posé immédiatement
+
     setResults([]);
     setScore(null);
     setTotalRules(null);
@@ -40,9 +44,17 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
       setTotalRules(null);
     }
 
+    // si le composant a été démonté (StrictMode cleanup) pendant l'await,
+    // on n'ouvre pas la connexion
+    if (!mountedRef.current) {
+      startingRef.current = false;
+      return;
+    }
+
     const url = `${API_BASE_URL}/benchmarks/${benchmarkId}/profiles/${profileId}/scan`;
     const es = new EventSource(url);
     esRef.current = es;
+    startingRef.current = false;
 
     es.onmessage = (e) => {
       const data: ScanEvent = JSON.parse(e.data);
@@ -70,8 +82,10 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     if (autoStart) start();
     return () => {
+      mountedRef.current = false;
       esRef.current?.close();
       esRef.current = null;
     };

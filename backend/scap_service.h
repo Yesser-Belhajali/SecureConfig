@@ -11,13 +11,30 @@ struct profile_list{
     char *extends;
 };
 
+struct rule_reference{
+    char *href;   // peut être NULL
+    char *text;
+};
+
+struct rule_fix{
+    char *system;   // ex: "urn:xccdf:fix:script:sh", "urn:xccdf:fix:script:ansible"
+    char *content;  // le script/contenu de remédiation
+};
+
 struct rule_list{
     char *id;
     char *title;
     char *description;
     char *rationale;
     char *severity;
+    char *question;
     bool selected;
+
+    struct rule_reference *references;
+    int references_count;
+
+    struct rule_fix *fixes;
+    int fixes_count;
 };
 
 const char *get_rule_title(struct xccdf_rule *rule);

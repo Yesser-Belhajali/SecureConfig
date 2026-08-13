@@ -26,6 +26,13 @@ struct scan_context {
 
     char benchmark_id[64];
     char profile_id[128];
+
+    int ref_count;       // 2 : un pour le producer thread, un pour MHD
+    bool cancelled;       // client parti, plus personne pour lire les events
+
+    // chaînage intrusif dans le registre global des scans actifs
+    struct scan_context *registry_next;
+    struct scan_context *registry_prev;
 };
 
 struct scan_context *scan_context_new(const char *benchmark_id, const char *profile_id);
@@ -36,5 +43,11 @@ void scan_context_start(struct scan_context *ctx);
 void scan_context_free(void *cls);
 
 ssize_t scan_reader_callback(void *cls, uint64_t pos, char *buf, size_t max);
+
+// à appeler dans main(), juste avant MHD_stop_daemon() : réveille tous les
+// scans en cours (suspendus ou non) et bloque jusqu'à ce qu'ils se soient
+// tous terminés proprement, pour que MHD_stop_daemon ne rencontre plus
+// aucune connexion suspendue.
+void scan_stream_shutdown(void);
 
 #endif
