@@ -4,9 +4,12 @@
 #include <string.h>
 #include <microhttpd.h>
 #include <cjson/cJSON.h>
+#include <oscap.h>
 #include "scap_service.h"
 #include "json_utils.h"
-#include "scan_stream.h"
+#include "scan.h"
+
+
 
 #define PORT 8000
 
@@ -15,6 +18,15 @@ struct connection_info {
     char *body;
     size_t body_size;
 };
+
+static int resolve_ds_path(const char *benchmark_id, char *out_path, size_t out_size) {
+    // convention : data/<id>/ssg-<id>-ds.xml
+    int n = snprintf(out_path, out_size, "../data/%s/ssg-%s-ds.xml", benchmark_id, benchmark_id);
+    if (n < 0 || (size_t)n >= out_size) {
+        return 0; // troncature, id trop long
+    }
+    return 1;
+}
 
 
 
@@ -28,8 +40,18 @@ static void request_completed(void *cls, struct MHD_Connection *connection,
     }
 }
 
+// construit le corps JSON de réponse pour une création réussie: {"id": "..."}
+static char *build_created_response(const char *new_id) {
+    cJSON *resp = cJSON_CreateObject();
+    if (resp == NULL) return NULL;
+    cJSON_AddStringToObject(resp, "id", new_id);
+    char *json_str = cJSON_Print(resp);
+    cJSON_Delete(resp);
+    return json_str;
+}
 
-static int extract_benchmark_id(const char *url, char *out_id, size_t out_size) {
+
+static int extract_benchmark_profiles(const char *url, char *out_id, size_t out_size) {
     int pos = 0;
     if (sscanf(url, "/benchmarks/%63[^/]/profiles%n", out_id, &pos) != 1) {
         return 0;
@@ -41,13 +63,15 @@ static int extract_benchmark_id(const char *url, char *out_id, size_t out_size) 
 }
 
 
-static int extract_rules_request(const char *url, char *out_id, size_t out_size) {
+static int extract_profile_selected_rules_request(const char *url, char *out_benchmark_id, size_t bid_size,
+                                            char *out_profile_id, size_t pid_size) {
     int pos = 0;
-    if (sscanf(url, "/benchmarks/%63[^/]/rules%n", out_id, &pos) != 1) {
+    if (sscanf(url, "/benchmarks/%63[^/]/profiles/%127[^/]/rules%n",
+               out_benchmark_id, out_profile_id, &pos) != 2) {
         return 0;
     }
     if (url[pos] != '\0') {
-        return 0;
+        return 0; // ex: laisse passer /rules/all vers son propre handler
     }
     return 1;
 }
@@ -57,7 +81,7 @@ static int extract_rules_request(const char *url, char *out_id, size_t out_size)
 // de fin de chaîne (%n + url[pos]=='\0'), cette dernière matcherait aussi
 // une URL se terminant par /rules/all (sscanf ignore silencieusement le
 // suffixe non consommé par le format)
-static int extract_all_rules_request(const char *url, char *out_benchmark_id, size_t bid_size,
+static int extract_profile_all_rules_request(const char *url, char *out_benchmark_id, size_t bid_size,
                                        char *out_profile_id, size_t pid_size) {
     int pos = 0;
     if (sscanf(url, "/benchmarks/%63[^/]/profiles/%127[^/]/rules/all%n",
@@ -70,15 +94,14 @@ static int extract_all_rules_request(const char *url, char *out_benchmark_id, si
     return 1;
 }
 
-static int extract_profile_rules_request(const char *url, char *out_benchmark_id, size_t bid_size,
-                                            char *out_profile_id, size_t pid_size) {
+
+static int extract_benchmark_rules_request(const char *url, char *out_id, size_t out_size) {
     int pos = 0;
-    if (sscanf(url, "/benchmarks/%63[^/]/profiles/%127[^/]/rules%n",
-               out_benchmark_id, out_profile_id, &pos) != 2) {
+    if (sscanf(url, "/benchmarks/%63[^/]/rules%n", out_id, &pos) != 1) {
         return 0;
     }
     if (url[pos] != '\0') {
-        return 0; // ex: laisse passer /rules/all vers son propre handler
+        return 0;
     }
     return 1;
 }
@@ -94,26 +117,6 @@ static int extract_scan_request(const char *url, char *out_benchmark_id, size_t 
         return 0;
     }
     return 1;
-}
-
-static int resolve_ds_path(const char *benchmark_id, char *out_path, size_t out_size) {
-    // convention : data/<id>/ssg-<id>-ds.xml
-    int n = snprintf(out_path, out_size, "../data/%s/ssg-%s-ds.xml", benchmark_id, benchmark_id);
-    if (n < 0 || (size_t)n >= out_size) {
-        return 0; // troncature, id trop long
-    }
-    return 1;
-}
-
-
-// construit le corps JSON de réponse pour une création réussie: {"id": "..."}
-static char *build_created_response(const char *new_id) {
-    cJSON *resp = cJSON_CreateObject();
-    if (resp == NULL) return NULL;
-    cJSON_AddStringToObject(resp, "id", new_id);
-    char *json_str = cJSON_Print(resp);
-    cJSON_Delete(resp);
-    return json_str;
 }
 
 
@@ -257,8 +260,6 @@ static enum MHD_Result handle_request(void *cls,
     char benchmark_id[64];
     char profile_id[128];
 
-    // GET /benchmarks/{id}/profiles/{id}/scan -> lance un scan et streame
-    // les résultats en SSE au fur et à mesure
     if (strcmp(method, "GET") == 0 && extract_scan_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
         struct scan_context *ctx = scan_context_new(benchmark_id, profile_id);
         if (ctx == NULL) {
@@ -269,10 +270,17 @@ static enum MHD_Result handle_request(void *cls,
         }
 
         scan_context_set_connection(ctx, connection);
-        scan_context_start(ctx);
+
+        if (!scan_context_start(ctx)) {
+            scan_context_abort(ctx);
+            struct MHD_Response *err = MHD_create_response_from_buffer(0, "", MHD_RESPMEM_PERSISTENT);
+            enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+            MHD_destroy_response(err);
+            return ret;
+        }
 
         struct MHD_Response *sse_response = MHD_create_response_from_callback(
-            MHD_SIZE_UNKNOWN, 1024, &scan_reader_callback, ctx, &scan_context_free);
+            MHD_SIZE_UNKNOWN, 1024, &scan_reader_callback, ctx, &consumer_finish);
         MHD_add_response_header(sse_response, "Content-Type", "text/event-stream");
         MHD_add_response_header(sse_response, "Cache-Control", "no-cache");
         MHD_add_response_header(sse_response, "Access-Control-Allow-Origin", "*");
@@ -281,53 +289,15 @@ static enum MHD_Result handle_request(void *cls,
         return ret;
     }
 
+
+
     if (strcmp(method, "GET") == 0 && strcmp(url, "/hello") == 0) {
         response_text = "{\"message\":\"Salut depuis le backend C!\"}";
         status_code = MHD_HTTP_OK;
     }
-    // IMPORTANT : cette route doit être testée avant extract_profile_rules_request
-    else if (strcmp(method, "GET") == 0 && extract_all_rules_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
-        struct rule_list *rules = NULL;
-        int count = all_rules_with_selection_for_profile(benchmark_id, profile_id, &rules);
 
-        if (count < 0) {
-            response_text = "{\"error\":\"profile not found or failed to load\"}";
-            status_code = MHD_HTTP_NOT_FOUND;
-        } else {
-            response_text = rules_to_json(rules, count);
-            free_rule_info_list(rules, count);
-
-            if (response_text == NULL) {
-                response_text = "{\"error\":\"json serialization failed\"}";
-                status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
-            } else {
-                status_code = MHD_HTTP_OK;
-                mem_mode = MHD_RESPMEM_MUST_FREE;
-            }
-        }
-    }
-    else if (strcmp(method, "GET") == 0 && extract_profile_rules_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
-        struct rule_list *rules = NULL;
-        int count = selected_rules_for_profile(benchmark_id, profile_id, &rules);
-
-        if (count < 0) {
-            response_text = "{\"error\":\"profile not found or failed to load\"}";
-            status_code = MHD_HTTP_NOT_FOUND;
-        } else {
-            response_text = rules_to_json(rules, count);
-            free_rule_info_list(rules, count);
-
-            if (response_text == NULL) {
-                response_text = "{\"error\":\"json serialization failed\"}";
-                status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
-            } else {
-                status_code = MHD_HTTP_OK;
-                mem_mode = MHD_RESPMEM_MUST_FREE;
-            }
-        }
-    }
     // GET /benchmarks/{id}/profiles -> profils DS + profils tailoring (si présents)
-    else if (strcmp(method, "GET") == 0 && extract_benchmark_id(url, benchmark_id, sizeof(benchmark_id))) {
+    else if (strcmp(method, "GET") == 0 && extract_benchmark_profiles(url, benchmark_id, sizeof(benchmark_id))) {
         struct profile_list *profiles = NULL;
         int profiles_count = 0;
         struct profile_list *tailoring_profiles = NULL;
@@ -349,11 +319,49 @@ static enum MHD_Result handle_request(void *cls,
             }
         }
     }
-    // POST /benchmarks/{id}/profiles -> création d'un profil de tailoring
-    else if (strcmp(method, "POST") == 0 && extract_benchmark_id(url, benchmark_id, sizeof(benchmark_id))) {
-        handle_create_profile(benchmark_id, con_info->body, &response_text, &status_code, &mem_mode);
+
+    // IMPORTANT : cette route doit être testée avant extract_profile_rules_request
+    else if (strcmp(method, "GET") == 0 && extract_profile_all_rules_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
+        struct rule_list *rules = NULL;
+        int count = profile_all_rules(benchmark_id, profile_id, &rules);
+
+        if (count < 0) {
+            response_text = "{\"error\":\"profile not found or failed to load\"}";
+            status_code = MHD_HTTP_NOT_FOUND;
+        } else {
+            response_text = rules_to_json(rules, count);
+            free_rule_info_list(rules, count);
+
+            if (response_text == NULL) {
+                response_text = "{\"error\":\"json serialization failed\"}";
+                status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+            } else {
+                status_code = MHD_HTTP_OK;
+                mem_mode = MHD_RESPMEM_MUST_FREE;
+            }
+        }
     }
-    else if (strcmp(method, "GET") == 0 && extract_rules_request(url, benchmark_id, sizeof(benchmark_id))) {
+    else if (strcmp(method, "GET") == 0 && extract_profile_selected_rules_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
+        struct rule_list *rules = NULL;
+        int count = profile_selected_rules(benchmark_id, profile_id, &rules);
+
+        if (count < 0) {
+            response_text = "{\"error\":\"profile not found or failed to load\"}";
+            status_code = MHD_HTTP_NOT_FOUND;
+        } else {
+            response_text = rules_to_json(rules, count);
+            free_rule_info_list(rules, count);
+
+            if (response_text == NULL) {
+                response_text = "{\"error\":\"json serialization failed\"}";
+                status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+            } else {
+                status_code = MHD_HTTP_OK;
+                mem_mode = MHD_RESPMEM_MUST_FREE;
+            }
+        }
+    }
+    else if (strcmp(method, "GET") == 0 && extract_benchmark_rules_request(url, benchmark_id, sizeof(benchmark_id))) {
         char ds_path[256];
         if (!resolve_ds_path(benchmark_id, ds_path, sizeof(ds_path))) {
             response_text = "{\"error\":\"invalid benchmark id\"}";
@@ -381,6 +389,10 @@ static enum MHD_Result handle_request(void *cls,
                 }
             }
         }
+    }
+    // POST /benchmarks/{id}/profiles -> création d'un profil de tailoring
+    else if (strcmp(method, "POST") == 0 && extract_benchmark_profiles(url, benchmark_id, sizeof(benchmark_id))) {
+        handle_create_profile(benchmark_id, con_info->body, &response_text, &status_code, &mem_mode);
     }
     else {
         response_text = "{\"error\":\"not found\"}";
@@ -416,9 +428,6 @@ int main(void) {
     printf("Serveur démarré sur http://localhost:%d\n", PORT);
     printf("Appuie sur Entrée pour arrêter...\n");
     getchar();
-
-    printf("Arrêt en cours (attente des scans actifs)...\n");
-    scan_stream_shutdown();
 
     MHD_stop_daemon(daemon);
 

@@ -16,12 +16,6 @@ const MenuIcon = () => (
   </svg>
 )
 
-const ThemeIcon = ({ light }: { light: boolean }) => light ? (
-  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>
-) : (
-  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z" /></svg>
-)
-
 const CloseIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="18" y1="6" x2="6" y2="18" />
@@ -31,15 +25,8 @@ const CloseIcon = () => (
 
 export function Header() {
   const [open, setOpen] = useState(false)
-  const [isLight, setIsLight] = useState(false)
   const [isHeaderHidden, setIsHeaderHidden] = useState(false)
 
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem('secureconfig-theme')
-    const light = savedTheme === 'light'
-    setIsLight(light)
-    document.documentElement.dataset.theme = light ? 'light' : 'dark'
-  }, [])
   useEffect(() => {
     let lastScrollY = window.scrollY
     const onScroll = () => {
@@ -50,16 +37,6 @@ export function Header() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [open])
-
-
-  const toggleTheme = () => {
-    setIsLight(current => {
-      const next = !current
-      document.documentElement.dataset.theme = next ? 'light' : 'dark'
-      window.localStorage.setItem('secureconfig-theme', next ? 'light' : 'dark')
-      return next
-    })
-  }
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `text-sm font-medium transition-colors duration-150 ${
@@ -80,7 +57,6 @@ export function Header() {
       }}
     >
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-        {/* Logo */}
         <NavLink to="/" className="flex items-center gap-2.5 group" aria-label="SecureConfig — Accueil">
           <span className="text-[#8B5CF6] group-hover:text-[#A78BFA] transition-colors">
             <ShieldIcon />
@@ -90,7 +66,6 @@ export function Header() {
           </span>
         </NavLink>
 
-        {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-8">
           <NavLink to="/" end className={linkClass}>Home</NavLink>
           <NavLink to="/scan" className={linkClass}>Scan</NavLink>
@@ -109,24 +84,11 @@ export function Header() {
           </NavLink>
         </nav>
 
-        <button
-          type="button"
-          className="hidden md:inline-flex items-center justify-center w-9 h-9 rounded-md text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-white/5 transition-colors"
-          onClick={toggleTheme}
-          aria-label={isLight ? 'Activer le mode sombre' : 'Activer le mode clair'}
-          title={isLight ? 'Mode sombre' : 'Mode clair'}
-        >
-          <ThemeIcon light={isLight} />
-        </button>
-
-        {/* Mobile controls */}
         <div className="md:hidden flex items-center gap-3">
-          <button type="button" className="text-[#94A3B8] hover:text-[#E2E8F0] transition-colors" onClick={toggleTheme} aria-label={isLight ? 'Activer le mode sombre' : 'Activer le mode clair'}><ThemeIcon light={isLight} /></button>
           <button className="text-[#94A3B8] hover:text-[#E2E8F0] transition-colors" onClick={() => setOpen(o => !o)} aria-label="Ouvrir le menu">{open ? <CloseIcon /> : <MenuIcon />}</button>
         </div>
       </div>
 
-      {/* Mobile menu */}
       {open && (
         <div
           className="md:hidden border-t px-6 py-4 flex flex-col gap-4"

@@ -24,9 +24,6 @@ body {
 
 #root { transition: filter 180ms ease; }
 
-html[data-theme='light'] #root {
-  filter: invert(1) hue-rotate(180deg);
-}
 
 @media (prefers-reduced-motion: reduce) {
   #root { transition: none; }

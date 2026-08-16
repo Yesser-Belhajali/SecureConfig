@@ -1214,10 +1214,30 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -Je suis en train de corriger les problemes de concurrence et des threads
 
+-J'ai compris le probleme des threads.
+
+-Le probleme avec l'endpoint de scan est que MHD est un serveur HTTP qui fonctionne en mode pull,c'est lui qui vient récupérer les donnees pour les envoyer.
+
+-Reprenons le probleme des le début,on veut envoyer les résultats des évaluations en temps réel vers le frontend pour un affichage instantané,moi je n'ai qu'un seul serveur appelé http_server ce dernier doitenvoyer en temps réel les résultats du scan,le probleme est que xccdf_session_evaluate est un appel bloquant,on ne peut pas le stopper pour envoyer,quand il est lancé il ne s'arrete qu a la fin de la derniere regle,donc nous devons créer deux entites qui communiquent entre eux ou la premiere evalue et la deuxieme envoie,si on choisit de creer deux processus,cela nous aide ou dans le cas de crash du premier le deuxieme continue car dans les threads si un crash tous les threads crashent,mais utiliser des processus cree un tres grand probleme qui est la communication entre eux,nous devrons utiliser des pipes ou des sockets ,alors que les threads partagent deja un espace mémoire donc la variable cree par un est visivle par l'autre,maintenant on voit apparaitre un autre probleme,meme si on a séparé les deux threads producteur qui évalue et MHD qui envoie,on ne peut pas forcer MHD a envoyer,le probleme est que MHD fonctionne en mode pull et pas push ,c'est lui qui vient demander si on a des choses a envoyer,et l'autre probleme est que les deux threads fonctionnent a des vitesses differentes,MHD doit gerer le reseau la socket et TCP et ne vient pas chercher les donnees que quand il veut,et le producteur peut produire instantanement des resultats ou prendre son temps dans le scan,MHD aussi n'expose aucune fonction  qui dit vient envoyer,c'est lui qui décide donc la solution pour synchroniser est de créer une file partagée ou le producteur evalue et ecrit dedans et reveille MHD pour venir collecter et envoyer
+
+--------------------------------------------------------------------------------------------15/08/2026-------------------------------------------------------------------------------
+
+-il existe un probleme lors de l'annulation d'un scan,j'ai implémenté un mécanisme qui tue le processus si je tape entrée mais quand je le fais pendant un scan cela annule seulement le scan mais le serveur http reste en marche
+
+-A ameliorer:
+1)variables en extras dans struct context
+2)on peut savoir le nombre d'items dans la file pour eviter la realloc
+3)Annulation du scan
+4)alloc fix ou je garde le realloc pour push
+
+
+--------------------------------------------------------------------------------------------16/08/2026-------------------------------------------------------------------------------
+
+-Salla7et bugs fel envoi win yebda script kbir barcha 3ad yfout el limite HTTP
 
 
 
-
+-Yesser zid el logs
 -Yesser zid el ID mta3 les profils fel affichage
 -Yesser zid kifech tfassa5 les profils de tailoring
 -Yesser fel recherche kona najmou nesta3mlou xccdf_benchmark_get_profile_by_id w xccdf_tailoring_get_profile_by_id zeda

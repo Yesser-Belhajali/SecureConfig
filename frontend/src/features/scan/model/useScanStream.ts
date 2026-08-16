@@ -1,18 +1,11 @@
 // features/scan/model/useScanStream.ts
 import { useEffect, useRef, useState } from "react";
 import { API_BASE_URL, getSelectedRulesForProfile } from "./api";
+import type { RuleResult } from "./types";
 
 type ScanEvent =
-  | { type: "start"; rule_id: string; title: string }
-  | { type: "result"; rule_id: string; status: string; severity: string }
+  | (RuleResult & { type: "result" })
   | { type: "done"; score: number };
-
-interface RuleResult {
-  rule_id: string;
-  title: string;
-  status: string;
-  severity: string;
-}
 
 export function useScanStream(benchmarkId: string, profileId: string, autoStart = false) {
   const [inProgressTitle, setInProgressTitle] = useState<string | null>(null);
@@ -21,31 +14,25 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
   const [score, setScore] = useState<number | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const esRef = useRef<EventSource | null>(null);
-  const titlesRef = useRef<Map<string, string>>(new Map());
   const startingRef = useRef(false);
   const mountedRef = useRef(false);
 
   const start = async () => {
     if (esRef.current || startingRef.current) return;
-    startingRef.current = true; // verrou synchrone, posé immédiatement
+    startingRef.current = true;
 
     setResults([]);
     setScore(null);
     setTotalRules(null);
     setStatus("running");
-    titlesRef.current = new Map();
 
     try {
       const selectedRules = await getSelectedRulesForProfile(benchmarkId, profileId);
       setTotalRules(selectedRules.length);
     } catch {
-      // le total sert uniquement à la barre de progression - son absence ne
-      // doit pas empêcher le scan lui-même de démarrer
       setTotalRules(null);
     }
 
-    // si le composant a été démonté (StrictMode cleanup) pendant l'await,
-    // on n'ouvre pas la connexion
     if (!mountedRef.current) {
       startingRef.current = false;
       return;
@@ -59,16 +46,13 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
     es.onmessage = (e) => {
       const data: ScanEvent = JSON.parse(e.data);
 
-      if (data.type === "start") {
-        titlesRef.current.set(data.rule_id, data.title);
+      if (data.type === "result") {
         setInProgressTitle(data.title);
-      } else if (data.type === "result") {
-        const title = titlesRef.current.get(data.rule_id) ?? data.rule_id;
-        setResults((prev) => [...prev, { ...data, title }]);
-        setInProgressTitle(null);
+        setResults((prev) => [...prev, data]);
       } else if (data.type === "done") {
         setScore(data.score);
         setStatus("done");
+        setInProgressTitle(null);
         es.close();
         esRef.current = null;
       }

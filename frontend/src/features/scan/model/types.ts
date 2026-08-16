@@ -22,6 +22,17 @@ export interface RuleFix {
   content: string;
 }
 
+export interface RuleWarning {
+  category: string;
+  text: string;
+}
+
+export interface RuleCheck {
+  system: string;
+  selector: string;
+  content: string;
+}
+
 export interface Rule {
   id: string;
   title: string;
@@ -31,7 +42,14 @@ export interface Rule {
   question: string;
   references: RuleReference[];
   fixes: RuleFix[];
+  warnings: RuleWarning[];
+  platforms: string[];
+  checks: RuleCheck[];
   selected?: boolean; // présent seulement quand la donnée vient de /rules/all
+}
+
+export interface RuleResult extends Rule {
+  status: string;
 }
 
 export interface SaveProfilePayload {

@@ -56,6 +56,37 @@ static void append_fixes_array(cJSON *item, struct rule_fix *fixes, int count){
     cJSON_AddItemToObject(item, "fixes", array);
 }
 
+static void append_warnings_array(cJSON *item, struct rule_warning *warnings, int count){
+    cJSON *array = cJSON_CreateArray();
+    for(int i=0;i<count;i++){
+        cJSON *w_item = cJSON_CreateObject();
+        cJSON_AddStringToObject(w_item, "category", warnings[i].category ? warnings[i].category : "");
+        cJSON_AddStringToObject(w_item, "text", warnings[i].text ? warnings[i].text : "");
+        cJSON_AddItemToArray(array, w_item);
+    }
+    cJSON_AddItemToObject(item, "warnings", array);
+}
+
+static void append_platforms_array(cJSON *item, char **platforms, int count){
+    cJSON *array = cJSON_CreateArray();
+    for(int i=0;i<count;i++){
+        cJSON_AddItemToArray(array, cJSON_CreateString(platforms[i] ? platforms[i] : ""));
+    }
+    cJSON_AddItemToObject(item, "platforms", array);
+}
+
+static void append_checks_array(cJSON *item, struct rule_check *checks, int count){
+    cJSON *array = cJSON_CreateArray();
+    for(int i=0;i<count;i++){
+        cJSON *c_item = cJSON_CreateObject();
+        cJSON_AddStringToObject(c_item, "system", checks[i].system ? checks[i].system : "");
+        cJSON_AddStringToObject(c_item, "selector", checks[i].selector ? checks[i].selector : "");
+        cJSON_AddStringToObject(c_item, "content", checks[i].content ? checks[i].content : "");
+        cJSON_AddItemToArray(array, c_item);
+    }
+    cJSON_AddItemToObject(item, "checks", array);
+}
+
 char *rules_to_json(struct rule_list *rules, int count) {
     cJSON *root = cJSON_CreateArray();
     if (root == NULL) return NULL;
@@ -71,8 +102,13 @@ char *rules_to_json(struct rule_list *rules, int count) {
         cJSON_AddStringToObject(item, "severity", rules[i].severity ? rules[i].severity : "");
         cJSON_AddBoolToObject(item, "selected", rules[i].selected);
         cJSON_AddStringToObject(item, "question", rules[i].question ? rules[i].question : "");
+        
+        
         append_references_array(item, rules[i].references, rules[i].references_count);
         append_fixes_array(item, rules[i].fixes, rules[i].fixes_count);
+        append_warnings_array(item, rules[i].warnings, rules[i].warnings_count);
+        append_platforms_array(item, rules[i].platforms, rules[i].platforms_count);
+        append_checks_array(item, rules[i].checks, rules[i].checks_count);
 
         cJSON_AddItemToArray(root, item);
     }

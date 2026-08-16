@@ -122,96 +122,6 @@ const char *get_rule_severity(struct xccdf_rule *rule){
     return rule_severity;
 }
 
-
-struct rule_node{
-    struct xccdf_rule *rule;
-    struct rule_node *next;
-};
-
-struct rule_node *push_front(struct rule_node *head,struct xccdf_rule *rule,bool *error){
-    struct rule_node *new_rule_node=malloc(sizeof(struct rule_node));
-    if(new_rule_node==NULL){
-        printf("Echec dans la création d'un noeud rule_node!!!!!\n");
-        *error=true;
-        return head;
-    }
-    new_rule_node->rule=rule;
-    new_rule_node->next=head;
-    return new_rule_node;
-}
-
-void free_rule_list(struct rule_node *head){
-    while(head!=NULL){
-        struct rule_node *new_rule_node=head;
-        head=head->next;
-        free(new_rule_node);
-    }
-}
-
-struct rule_node *collect_rules_recursive(struct xccdf_item *benchmark_item,struct rule_node *head,bool *error){
-    if(*error){
-        return head;
-    }
-    xccdf_type_t benchmark_item_type=xccdf_item_get_type(benchmark_item);
-    if(benchmark_item_type==XCCDF_RULE){
-        head=push_front(head,xccdf_item_to_rule(benchmark_item),error);
-    }
-    else if(benchmark_item_type==XCCDF_GROUP){
-        struct xccdf_item_iterator *group_iterator=xccdf_group_get_content(xccdf_item_to_group(benchmark_item));
-        if(group_iterator==NULL){
-            printf("Erreur dans la création de l'itérateur du groupe!!!!\n");
-            *error=true;
-            return head;
-        }
-        while(xccdf_item_iterator_has_more(group_iterator) && *error==false){
-            struct xccdf_item *group_item=xccdf_item_iterator_next(group_iterator);
-            head=collect_rules_recursive(group_item,head,error);
-        }
-        xccdf_item_iterator_free(group_iterator);
-    }
-    return head;
-}
-
-struct rule_node *get_benchmark_rules(struct xccdf_benchmark *benchmark,bool *error){
-    struct rule_node *head=NULL;
-    struct xccdf_item_iterator *benchmark_iterator=xccdf_benchmark_get_content(benchmark);
-    if(benchmark_iterator==NULL){
-        printf("Erreur dans la création de l'itérateur du benchmark!!!!\n");
-        *error=true;
-        return NULL;
-    }
-    while(xccdf_item_iterator_has_more(benchmark_iterator) && *error==false){
-        struct xccdf_item *benchmark_item=xccdf_item_iterator_next(benchmark_iterator);
-        head=collect_rules_recursive(benchmark_item,head,error);
-    }
-    xccdf_item_iterator_free(benchmark_iterator);
-    return head;
-}
-
-struct rule_node *get_benchmark_rules_or_null(struct xccdf_benchmark *benchmark){
-    bool error=false;
-    struct rule_node *head=get_benchmark_rules(benchmark,&error);
-    if(error){
-        free_rule_list(head);
-        return NULL;
-    }
-    return head;
-}
-
-void free_profile_list(struct profile_list *profiles,int count){
-    if(profiles==NULL){
-        return;
-    }
-    for(int i=0;i<count;i++){
-        free(profiles[i].id);
-        free(profiles[i].title);
-        free(profiles[i].description);
-        free(profiles[i].extends);
-    }
-    free(profiles);
-}
-
-
 static int load_benchmark_from_ds(const char *ds_path, struct ds_sds_session **out_session, struct xccdf_benchmark **out_benchmark){
     *out_session = NULL;
     *out_benchmark = NULL;
@@ -246,6 +156,20 @@ static int load_benchmark_from_ds(const char *ds_path, struct ds_sds_session **o
     *out_benchmark = benchmark;
     return 0;
 }
+
+void free_profile_list(struct profile_list *profiles,int count){
+    if(profiles==NULL){
+        return;
+    }
+    for(int i=0;i<count;i++){
+        free(profiles[i].id);
+        free(profiles[i].title);
+        free(profiles[i].description);
+        free(profiles[i].extends);
+    }
+    free(profiles);
+}
+
 
 static int profiles_from_iterator(struct xccdf_profile_iterator *profile_iterator, struct profile_list **out_profiles){
     struct profile_list *profiles = NULL;
@@ -293,6 +217,14 @@ static int profiles_from_iterator(struct xccdf_profile_iterator *profile_iterato
 
     *out_profiles = profiles;
     return count;
+}
+
+
+
+
+void free_profiles_for_distro(struct profile_list *profiles, int profiles_count,struct profile_list *tailoring_profiles, int tailoring_count){
+    free_profile_list(profiles, profiles_count);
+    free_profile_list(tailoring_profiles, tailoring_count);
 }
 
 int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, int *out_profiles_count,struct profile_list **out_tailoring_profiles, int *out_tailoring_count){
@@ -392,11 +324,6 @@ int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, 
     *out_tailoring_count = tailoring_count;
 
     return 0;
-}
-
-void free_profiles_for_distro(struct profile_list *profiles, int profiles_count,struct profile_list *tailoring_profiles, int tailoring_count){
-    free_profile_list(profiles, profiles_count);
-    free_profile_list(tailoring_profiles, tailoring_count);
 }
 
 
@@ -509,6 +436,178 @@ static int collect_fixes(struct xccdf_rule *rule, struct rule_fix **out_fixes, i
     return 0;
 }
 
+static void free_warnings(struct rule_warning *warnings, int count) {
+    if (warnings == NULL) return;
+    for (int i = 0; i < count; i++) {
+        free(warnings[i].category);
+        free(warnings[i].text);
+    }
+    free(warnings);
+}
+
+static const char *warning_category_to_str(xccdf_warning_category_t c) {
+    switch (c) {
+        case XCCDF_WARNING_GENERAL: return "general";
+        case XCCDF_WARNING_FUNCTIONALITY: return "functionality";
+        case XCCDF_WARNING_PERFORMANCE: return "performance";
+        case XCCDF_WARNING_HARDWARE: return "hardware";
+        case XCCDF_WARNING_LEGAL: return "legal";
+        case XCCDF_WARNING_REGULATORY: return "regulatory";
+        case XCCDF_WARNING_MANAGEMENT: return "management";
+        case XCCDF_WARNING_AUDIT: return "audit";
+        case XCCDF_WARNING_DEPENDENCY: return "dependency";
+        case XCCDF_WARNING_NOT_SPECIFIED:
+        default: return "not_specified";
+    }
+}
+
+static int collect_warnings(struct xccdf_rule *rule, struct rule_warning **out_warnings, int *out_count){
+    *out_warnings=NULL;
+    *out_count=0;
+
+    struct xccdf_warning_iterator *it=xccdf_rule_get_warnings(rule);
+    if(it==NULL){
+        return 0;
+    }
+
+    struct rule_warning *warnings=NULL;
+    int count=0;
+
+    while(xccdf_warning_iterator_has_more(it)){
+        struct xccdf_warning *w=xccdf_warning_iterator_next(it);
+        const char *category=warning_category_to_str(xccdf_warning_get_category(w));
+
+        struct oscap_text *text_obj=xccdf_warning_get_text(w);
+        const char *text=text_obj ? oscap_text_get_text(text_obj) : NULL;
+
+        struct rule_warning *tmp=realloc(warnings,(count+1)*sizeof(struct rule_warning));
+        if(tmp==NULL){
+            free_warnings(warnings,count);
+            xccdf_warning_iterator_free(it);
+            return -1;
+        }
+        warnings=tmp;
+
+        warnings[count].category = category ? strdup(category) : NULL;
+        warnings[count].text = text ? strdup(text) : NULL;
+
+        if((category!=NULL && warnings[count].category==NULL) || (text!=NULL && warnings[count].text==NULL)){
+            free(warnings[count].category);
+            free(warnings[count].text);
+            free_warnings(warnings,count);
+            xccdf_warning_iterator_free(it);
+            return -1;
+        }
+        count++;
+    }
+
+    xccdf_warning_iterator_free(it);
+    *out_warnings=warnings;
+    *out_count=count;
+    return 0;
+}
+
+static void free_platforms(char **platforms, int count) {
+    if (platforms == NULL) return;
+    for (int i = 0; i < count; i++) free(platforms[i]);
+    free(platforms);
+}
+
+static int collect_platforms(struct xccdf_rule *rule, char ***out_platforms, int *out_count){
+    *out_platforms=NULL;
+    *out_count=0;
+
+    struct oscap_string_iterator *it=xccdf_rule_get_platforms(rule);
+    if(it==NULL){
+        return 0;
+    }
+
+    char **platforms=NULL;
+    int count=0;
+
+    while(oscap_string_iterator_has_more(it)){
+        const char *platform=oscap_string_iterator_next(it);
+
+        char **tmp=realloc(platforms,(count+1)*sizeof(char *));
+        if(tmp==NULL){
+            free_platforms(platforms,count);
+            oscap_string_iterator_free(it);
+            return -1;
+        }
+        platforms=tmp;
+
+        platforms[count] = platform ? strdup(platform) : NULL;
+        if(platform!=NULL && platforms[count]==NULL){
+            free_platforms(platforms,count);
+            oscap_string_iterator_free(it);
+            return -1;
+        }
+        count++;
+    }
+
+    oscap_string_iterator_free(it);
+    *out_platforms=platforms;
+    *out_count=count;
+    return 0;
+}
+
+static void free_checks(struct rule_check *checks, int count) {
+    if (checks == NULL) return;
+    for (int i = 0; i < count; i++) {
+        free(checks[i].system);
+        free(checks[i].selector);
+        free(checks[i].content);
+    }
+    free(checks);
+}
+
+static int collect_checks(struct xccdf_rule *rule, struct rule_check **out_checks, int *out_count){
+    *out_checks=NULL;
+    *out_count=0;
+
+    struct xccdf_check_iterator *it=xccdf_rule_get_checks(rule);
+    if(it==NULL){
+        return 0;
+    }
+
+    struct rule_check *checks=NULL;
+    int count=0;
+
+    while(xccdf_check_iterator_has_more(it)){
+        struct xccdf_check *check=xccdf_check_iterator_next(it);
+        const char *system=xccdf_check_get_system(check);
+        const char *selector=xccdf_check_get_selector(check);
+        const char *content=xccdf_check_get_content(check);
+
+        struct rule_check *tmp=realloc(checks,(count+1)*sizeof(struct rule_check));
+        if(tmp==NULL){
+            free_checks(checks,count);
+            xccdf_check_iterator_free(it);
+            return -1;
+        }
+        checks=tmp;
+
+        checks[count].system = system ? strdup(system) : NULL;
+        checks[count].selector = selector ? strdup(selector) : NULL;
+        checks[count].content = content ? strdup(content) : NULL;
+
+        if((system!=NULL && checks[count].system==NULL) || (selector!=NULL && checks[count].selector==NULL) || (content!=NULL && checks[count].content==NULL)){
+            free(checks[count].system);
+            free(checks[count].selector);
+            free(checks[count].content);
+            free_checks(checks,count);
+            xccdf_check_iterator_free(it);
+            return -1;
+        }
+        count++;
+    }
+
+    xccdf_check_iterator_free(it);
+    *out_checks=checks;
+    *out_count=count;
+    return 0;
+}
+
 // libère tous les champs d'UNE entrée rule_list (mais pas le pointeur lui-même,
 // qui vit dans un tableau géré par realloc côté appelant)
 static void free_rule_entry_fields(struct rule_list *r){
@@ -520,6 +619,91 @@ static void free_rule_entry_fields(struct rule_list *r){
     free(r->question);
     free_references(r->references, r->references_count);
     free_fixes(r->fixes, r->fixes_count);
+    free_warnings(r->warnings, r->warnings_count);
+    free_platforms(r->platforms, r->platforms_count);
+    free_checks(r->checks, r->checks_count);
+}
+
+
+
+void free_rule_info_list(struct rule_list *rules,int count){
+    if(rules==NULL){
+        return;
+    }
+    for(int i=0;i<count;i++){
+        free_rule_entry_fields(&rules[i]);
+    }
+    free(rules);
+}
+
+
+struct rule_node *push_front(struct rule_node *head,struct xccdf_rule *rule,bool *error){
+    struct rule_node *new_rule_node=malloc(sizeof(struct rule_node));
+    if(new_rule_node==NULL){
+        *error=true;
+        return head;
+    }
+    new_rule_node->rule=rule;
+    new_rule_node->next=head;
+    return new_rule_node;
+}
+
+
+struct rule_node *collect_rules_recursive(struct xccdf_item *benchmark_item,struct rule_node *head,bool *error){
+    if(*error){
+        return head;
+    }
+    xccdf_type_t benchmark_item_type=xccdf_item_get_type(benchmark_item);
+    if(benchmark_item_type==XCCDF_RULE){
+        head=push_front(head,xccdf_item_to_rule(benchmark_item),error);
+    }
+    else if(benchmark_item_type==XCCDF_GROUP){
+        struct xccdf_item_iterator *group_iterator=xccdf_group_get_content(xccdf_item_to_group(benchmark_item));
+        if(group_iterator==NULL){
+            *error=true;
+            return head;
+        }
+        while(xccdf_item_iterator_has_more(group_iterator) && *error==false){
+            struct xccdf_item *group_item=xccdf_item_iterator_next(group_iterator);
+            head=collect_rules_recursive(group_item,head,error);
+        }
+        xccdf_item_iterator_free(group_iterator);
+    }
+    return head;
+}
+
+struct rule_node *get_benchmark_rules(struct xccdf_benchmark *benchmark,bool *error){
+    struct rule_node *head=NULL;
+    struct xccdf_item_iterator *benchmark_iterator=xccdf_benchmark_get_content(benchmark);
+    if(benchmark_iterator==NULL){
+        *error=true;
+        return NULL;
+    }
+    while(xccdf_item_iterator_has_more(benchmark_iterator) && *error==false){
+        struct xccdf_item *benchmark_item=xccdf_item_iterator_next(benchmark_iterator);
+        head=collect_rules_recursive(benchmark_item,head,error);
+    }
+    xccdf_item_iterator_free(benchmark_iterator);
+    return head;
+}
+
+void free_rule_list(struct rule_node *head){
+    while(head!=NULL){
+        struct rule_node *new_rule_node=head;
+        head=head->next;
+        free(new_rule_node);
+    }
+}
+
+
+struct rule_node *get_benchmark_rules_or_null(struct xccdf_benchmark *benchmark){
+    bool error=false;
+    struct rule_node *head=get_benchmark_rules(benchmark,&error);
+    if(error){
+        free_rule_list(head);
+        return NULL;
+    }
+    return head;
 }
 
 // remplit une entrée rule_list à partir d'une xccdf_rule; sur échec, *out est
@@ -554,25 +738,28 @@ static int fill_rule_entry(struct xccdf_rule *rule, bool selected, struct rule_l
         free_rule_entry_fields(out);
         return -1;
     }
+
     if(collect_fixes(rule, &out->fixes, &out->fixes_count) != 0){
         free_rule_entry_fields(out);
         return -1;
     }
 
+    if(collect_warnings(rule, &out->warnings, &out->warnings_count) != 0){
+        free_rule_entry_fields(out);
+        return -1;
+    }
+
+    if(collect_platforms(rule, &out->platforms, &out->platforms_count) != 0){
+        free_rule_entry_fields(out);
+        return -1;
+    }
+
+    if(collect_checks(rule, &out->checks, &out->checks_count) != 0){
+        free_rule_entry_fields(out);
+        return -1;
+    }
+
     return 0;
-}
-
-
-
-
-void free_rule_info_list(struct rule_list *rules,int count){
-    if(rules==NULL){
-        return;
-    }
-    for(int i=0;i<count;i++){
-        free_rule_entry_fields(&rules[i]);
-    }
-    free(rules);
 }
 
 
@@ -629,15 +816,6 @@ int list_rules_for_ds(const char *ds_path,struct rule_list **out_rules){
     *out_rules=rules;
     return count;
 }
-
-
-struct resolved_profile_context {
-    struct ds_sds_session *ds_sds_session;
-    struct xccdf_benchmark *benchmark;       // possédé par policy_model après création
-    struct xccdf_policy_model *policy_model;
-    struct oscap_source *tailoring_source;   // NULL si aucun tailoring utilisé
-    struct xccdf_profile *profile;           // profil trouvé (natif ou tailoring)
-};
 
 // cherche profile_id d'abord dans le benchmark natif, puis dans le tailoring
 // associé à benchmark_id s'il existe et si le profil n'a pas été trouvé avant
@@ -730,7 +908,7 @@ static void free_profile_context(struct resolved_profile_context *ctx) {
     }
 }
 
-int selected_rules_for_profile(const char *benchmark_id, const char *profile_id, struct rule_list **out_rules){
+int profile_selected_rules(const char *benchmark_id, const char *profile_id, struct rule_list **out_rules){
     if(out_rules==NULL){
         return -1;
     }
@@ -800,7 +978,7 @@ int selected_rules_for_profile(const char *benchmark_id, const char *profile_id,
     return count;
 }
 
-int all_rules_with_selection_for_profile(const char *benchmark_id, const char *profile_id, struct rule_list **out_rules){
+int profile_all_rules(const char *benchmark_id, const char *profile_id, struct rule_list **out_rules){
     if(out_rules==NULL){
         return -1;
     }
@@ -812,18 +990,20 @@ int all_rules_with_selection_for_profile(const char *benchmark_id, const char *p
         return -1;
     }
 
-    struct xccdf_policy *policy=xccdf_policy_new(ctx.policy_model,ctx.profile);
-    if(policy==NULL){
+    struct rule_node *head=get_benchmark_rules_or_null(ctx.benchmark);
+    if(head==NULL){
         free_profile_context(&ctx);
         return -1;
     }
 
-    struct rule_node *head=get_benchmark_rules_or_null(ctx.benchmark);
-    if(head==NULL){
-        xccdf_policy_free(policy);
+    struct xccdf_policy *policy=xccdf_policy_new(ctx.policy_model,ctx.profile);
+    if(policy==NULL){
         free_profile_context(&ctx);
+        free_rule_list(head);
         return -1;
     }
+
+    
 
     struct rule_list *rules=NULL;
     int count=0;
@@ -833,8 +1013,8 @@ int all_rules_with_selection_for_profile(const char *benchmark_id, const char *p
         struct rule_list *tmp = realloc(rules, (count + 1) * sizeof(struct rule_list));
         if(tmp==NULL){
             free_rule_info_list(rules,count);
-            free_rule_list(head);
             xccdf_policy_free(policy);
+            free_rule_list(head);
             free_profile_context(&ctx);
             return -1;
         }
@@ -845,8 +1025,8 @@ int all_rules_with_selection_for_profile(const char *benchmark_id, const char *p
 
         if(fill_rule_entry(iter->rule, selected, &rules[count]) != 0){
             free_rule_info_list(rules,count);
-            free_rule_list(head);
             xccdf_policy_free(policy);
+            free_rule_list(head);
             free_profile_context(&ctx);
             return -1;
         }
@@ -854,8 +1034,8 @@ int all_rules_with_selection_for_profile(const char *benchmark_id, const char *p
         iter=iter->next;
     }
 
-    free_rule_list(head);
     xccdf_policy_free(policy);
+    free_rule_list(head);
     free_profile_context(&ctx);
 
     *out_rules=rules;
