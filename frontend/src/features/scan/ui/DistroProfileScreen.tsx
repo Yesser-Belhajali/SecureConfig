@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useScanFlow } from "../model/useScanFlow";
 import { distributions } from "../model/distributions";
+import type { Profile } from "../model/types";
 
 export function ScanScreen() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [confirmDeleteProfile, setConfirmDeleteProfile] = useState<Profile | null>(null);
   const {
     screen,
     distributionId,
@@ -23,6 +25,9 @@ export function ScanScreen() {
     goToProfileScreen,
     goToSystemScreen,
     setSelectedProfile,
+    deletingProfileId,
+    deleteErrors,
+    deleteProfile,
   } = useScanFlow();
 
   const filteredDistributions = distributions.filter((d) =>
@@ -179,7 +184,15 @@ export function ScanScreen() {
                     {tailoringProfiles.map(profile => {
                       const isSelected = selectedProfile === profile.id;
                       return (
-                        <label key={profile.id} className="flex items-start gap-4 rounded-xl px-5 py-4 cursor-pointer border transition-all duration-200 hover:-translate-y-0.5 hover:border-[#A78BFA]/50" style={{ backgroundColor: isSelected ? 'rgba(139,92,246,0.13)' : 'rgba(19,23,30,0.62)', borderColor: isSelected ? 'rgba(167,139,250,0.65)' : 'rgba(255,255,255,0.10)', boxShadow: isSelected ? '0 10px 28px rgba(76,29,149,.18)' : 'none' }}>
+                        <label
+                          key={profile.id}
+                          className="flex items-start gap-4 rounded-xl px-5 py-4 cursor-pointer border transition-all duration-200 hover:-translate-y-0.5 hover:border-[#A78BFA]/50"
+                          style={{
+                            backgroundColor: isSelected ? 'rgba(139,92,246,0.13)' : 'rgba(19,23,30,0.62)',
+                            borderColor: isSelected ? 'rgba(167,139,250,0.65)' : 'rgba(255,255,255,0.10)',
+                            boxShadow: isSelected ? '0 10px 28px rgba(76,29,149,.18)' : 'none',
+                          }}
+                        >
                           <input type="radio" name="profile" value={profile.id} checked={isSelected} onChange={() => setSelectedProfile(profile.id)} className="accent-[#8B5CF6] mt-0.5" />
                           <span className="flex-1 min-w-0">
                             <span className="block text-sm font-semibold text-[#E2E8F0]">{profile.title}</span>
@@ -190,8 +203,34 @@ export function ScanScreen() {
                             {profile.extends && (
                               <span className="block text-xs text-[#64748B] mt-1">Étend {profile.extends}</span>
                             )}
+                            {deleteErrors[profile.id] && (
+                              <span className="block text-xs text-red-400 mt-1.5 leading-relaxed">{deleteErrors[profile.id]}</span>
+                            )}
                           </span>
-                          <span className="text-[#A78BFA] text-sm mt-0.5" aria-hidden="true">{isSelected ? '✓' : '→'}</span>
+
+                          {isSelected ? (
+                            <button
+                              type="button"
+                              aria-label={`Supprimer le profil ${profile.title}`}
+                              disabled={deletingProfileId === profile.id}
+                              onClick={(e) => {
+                                e.preventDefault(); // n'active pas le radio au clic
+                                e.stopPropagation();
+                                setConfirmDeleteProfile(profile);
+                              }}
+                              className="flex items-center justify-center w-11 h-11 rounded-xl text-white text-lg transition-all hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 shrink-0"
+                              style={{
+                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                boxShadow: '0 8px 18px rgba(220,38,38,.32)',
+                                border: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {deletingProfileId === profile.id ? "…" : "🗑"}
+                            </button>
+                          ) : (
+                            <span className="text-[#A78BFA] text-sm mt-0.5" aria-hidden="true">→</span>
+                          )}
                         </label>
                       );
                     })}
@@ -227,6 +266,55 @@ export function ScanScreen() {
           Aucune donnée ne quitte votre machine.
         </p>
       </div>
+
+      {confirmDeleteProfile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-8"
+          style={{ background: 'rgba(8,10,15,0.72)', backdropFilter: 'blur(2px)' }}
+          onClick={() => setConfirmDeleteProfile(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-sm rounded-2xl border p-6"
+            style={{
+              background: 'linear-gradient(135deg, #1b1730, #14161f)',
+              borderColor: 'rgba(167,139,250,.35)',
+              boxShadow: '0 25px 60px rgba(0,0,0,.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-[#F1F5F9] mb-2">Supprimer ce profil ?</h3>
+            <p className="text-sm text-[#94A3B8] leading-relaxed mb-6">
+              Le profil « <span className="font-semibold text-[#E2E8F0]">{confirmDeleteProfile.title}</span> » sera supprimé définitivement. Cette action est irréversible.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium text-[#94A3B8] hover:text-[#E2E8F0] hover:bg-white/5 transition-colors"
+                style={{ border: '1px solid rgba(255,255,255,0.12)' }}
+                onClick={() => setConfirmDeleteProfile(null)}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:-translate-y-0.5"
+                style={{
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  boxShadow: '0 8px 18px rgba(220,38,38,.32)',
+                }}
+                onClick={() => {
+                  deleteProfile(confirmDeleteProfile.id);
+                  setConfirmDeleteProfile(null);
+                }}
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

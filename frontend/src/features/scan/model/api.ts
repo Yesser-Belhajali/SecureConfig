@@ -55,3 +55,17 @@ export async function saveProfileSelection(
   });
   return handleResponse<SaveProfileResponse>(response);
 }
+
+// DELETE /benchmarks/{benchmarkId}/profiles/{profileId}
+// Ne fonctionne que sur les profils de tailoring (personnalisés) — le backend
+// renvoie une erreur 404 "profile not found" pour un profil natif, puisque
+// delete_tailoring_profile() ne cherche que dans le fichier de tailoring.
+export async function deleteProfile(
+  benchmarkId: string,
+  profileId: string
+): Promise<{ deleted: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/benchmarks/${benchmarkId}/profiles/${profileId}`, {
+    method: "DELETE",
+  });
+  return handleResponse<{ deleted: boolean }>(response);
+}

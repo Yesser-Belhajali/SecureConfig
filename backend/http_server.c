@@ -119,6 +119,22 @@ static int extract_scan_request(const char *url, char *out_benchmark_id, size_t 
     return 1;
 }
 
+// DELETE /benchmarks/{id}/profiles/{id} — exactement 2 segments, sans suffixe
+// (/rules, /rules/all, /scan filent vers leurs propres handlers grâce au
+// contrôle de fin de chaîne)
+static int extract_single_profile_request(const char *url, char *out_benchmark_id, size_t bid_size,
+                                             char *out_profile_id, size_t pid_size) {
+    int pos = 0;
+    if (sscanf(url, "/benchmarks/%63[^/]/profiles/%127[^/]%n",
+               out_benchmark_id, out_profile_id, &pos) != 2) {
+        return 0;
+    }
+    if (url[pos] != '\0') {
+        return 0;
+    }
+    return 1;
+}
+
 
 static void handle_create_profile(const char *benchmark_id, const char *body,
                                     const char **response_text, int *status_code,
@@ -188,17 +204,29 @@ static void handle_create_profile(const char *benchmark_id, const char *body,
         if (*response_text == NULL) {
             *response_text = "{\"error\":\"json serialization failed\"}";
             *status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
-        } else {
+        }
+        else {
             *status_code = MHD_HTTP_CREATED;
             *mem_mode = MHD_RESPMEM_MUST_FREE;
         }
-    } else if (ret == -2) {
+    }
+    else if (ret == -2) {
         *response_text = "{\"error\":\"a profile with this name already exists\"}";
         *status_code = MHD_HTTP_CONFLICT;
-    } else if (ret == -3) {
+    }
+    else if (ret == -3) {
         *response_text = "{\"error\":\"base profile not found\"}";
         *status_code = MHD_HTTP_NOT_FOUND;
-    } else {
+    }
+    else if (ret == -4) {
+        *response_text = "{\"error\":\"Un profil créé à partir de zéro doit contenir au moins une règle.\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+    }
+    else if (ret == -5) {
+        *response_text = "{\"error\":\"Ce profil ne contient aucune règle une fois résolu — vérifiez votre sélection.\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+    }
+    else {
         *response_text = "{\"error\":\"failed to create profile\"}";
         *status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
     }
@@ -246,7 +274,7 @@ static enum MHD_Result handle_request(void *cls,
     if (strcmp(method, "OPTIONS") == 0) {
         struct MHD_Response *response = MHD_create_response_from_buffer(0, "", MHD_RESPMEM_PERSISTENT);
         MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
-        MHD_add_response_header(response, "Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        MHD_add_response_header(response, "Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
         MHD_add_response_header(response, "Access-Control-Allow-Headers", "Content-Type");
         enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
         MHD_destroy_response(response);
@@ -393,6 +421,30 @@ static enum MHD_Result handle_request(void *cls,
     // POST /benchmarks/{id}/profiles -> création d'un profil de tailoring
     else if (strcmp(method, "POST") == 0 && extract_benchmark_profiles(url, benchmark_id, sizeof(benchmark_id))) {
         handle_create_profile(benchmark_id, con_info->body, &response_text, &status_code, &mem_mode);
+    }
+    // DELETE /benchmarks/{id}/profiles/{id} -> suppression d'un profil de tailoring
+    else if (strcmp(method, "DELETE") == 0 && extract_single_profile_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
+        int ret = delete_tailoring_profile(benchmark_id, profile_id);
+        if (ret == 0) {
+            response_text = "{\"deleted\":true}";
+            status_code = MHD_HTTP_OK;
+        }
+        else if (ret == -2) {
+            response_text = "{\"error\":\"no tailoring file for this benchmark\"}";
+            status_code = MHD_HTTP_NOT_FOUND;
+        }
+        else if (ret == -3) {
+            response_text = "{\"error\":\"profile not found\"}";
+            status_code = MHD_HTTP_NOT_FOUND;
+        }
+        else if (ret == -4) {
+            response_text = "{\"error\":\"D'autres profils personnalisés héritent de celui-ci — supprimez-les d'abord\"}";
+            status_code = MHD_HTTP_CONFLICT;
+        }
+        else {
+            response_text = "{\"error\":\"failed to delete profile\"}";
+            status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+        }
     }
     else {
         response_text = "{\"error\":\"not found\"}";

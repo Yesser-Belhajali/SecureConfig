@@ -1234,9 +1234,18 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 --------------------------------------------------------------------------------------------16/08/2026-------------------------------------------------------------------------------
 
 -Salla7et bugs fel envoi win yebda script kbir barcha 3ad yfout el limite HTTP
+-Tla3et najem na7i el oscap_source doub mane5ou elli n7eb 3lih
+
+-J'ai ajouté la possibilité de supprimer un profil
+-Amélioration de l'UX
+
+
+-J'ai corrigé le probleme de SegFault
 
 
 
+
+-Yesser fama mochkol ki yabda 3dad el rules s8ir mayeteb3ath chay sa3at tsir bara sala7ha
 -Yesser zid el logs
 -Yesser zid el ID mta3 les profils fel affichage
 -Yesser zid kifech tfassa5 les profils de tailoring

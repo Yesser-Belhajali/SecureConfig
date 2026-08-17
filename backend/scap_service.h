@@ -65,10 +65,8 @@ struct rule_list{
 };
 
 struct resolved_profile_context {
-    struct ds_sds_session *ds_sds_session;
     struct xccdf_benchmark *benchmark;       // possédé par policy_model après création
     struct xccdf_policy_model *policy_model;
-    struct oscap_source *tailoring_source;   // NULL si aucun tailoring utilisé
     struct xccdf_profile *profile;           // profil trouvé (natif ou tailoring)
 };
 
@@ -89,10 +87,23 @@ int profile_selected_rules(const char *benchmark_id, const char *profile_id, str
 int profile_all_rules(const char *benchmark_id, const char *profile_id, struct rule_list **out_rules);
 
 
+
+// -2 = nom déjà utilisé ; -3 = profil de base introuvable ;
+// -4 = profil from-scratch sans aucune règle ajoutée (check rapide) ;
+// -5 = profil résolu vide après héritage (check complet, ex: extends +
+// désélection totale des règles héritées)
 int create_tailoring_profile(const char *benchmark_id, const char *name, const char *description,
                               const char *base_profile_id, // NULL = from-scratch
                               const char **added_ids, int added_count,
                               const char **removed_ids, int removed_count,
                               char *out_new_id, size_t out_id_size);
+
+
+
+// -1 = erreur générique ; -2 = pas de fichier tailoring pour ce benchmark ;
+// -3 = profil introuvable dans le tailoring ; -4 = suppression refusée,
+// un autre profil du tailoring hérite (extends) de celui-ci
+int delete_tailoring_profile(const char *benchmark_id, const char *profile_id);
+
 
 #endif

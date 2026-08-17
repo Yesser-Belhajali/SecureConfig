@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { getProfiles } from "./api";
+import { getProfiles, deleteProfile as deleteProfileRequest } from "./api";
 import type { Profile } from "./types";
 import { distributions, buildBenchmarkId, type Distribution } from "./distributions";
 
@@ -24,11 +24,14 @@ interface UseScanFlowResult {
   tailoringProfiles: Profile[];
   loadingProfiles: boolean;
   profilesError: string | null;
+  deletingProfileId: string | null;
+  deleteErrors: Record<string, string>;
   toggleVersion: (distributionId: string, version: string) => void;
   resetSystemChoice: () => void;
   goToProfileScreen: () => void;
   goToSystemScreen: () => void;
   setSelectedProfile: (profileId: string) => void;
+  deleteProfile: (profileId: string) => void;
 }
 
 export function useScanFlow(): UseScanFlowResult {
@@ -46,6 +49,9 @@ export function useScanFlow(): UseScanFlowResult {
   const [tailoringProfiles, setTailoringProfiles] = useState<Profile[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [profilesError, setProfilesError] = useState<string | null>(null);
+
+  const [deletingProfileId, setDeletingProfileId] = useState<string | null>(null);
+  const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
 
   const selectedDistribution = distributions.find((item) => item.id === distributionId);
   const benchmarkId = selectedDistribution ? buildBenchmarkId(distributionId, version) : "";
@@ -97,6 +103,29 @@ export function useScanFlow(): UseScanFlowResult {
   const goToProfileScreen = () => setScreen("profile");
   const goToSystemScreen = () => setScreen("system");
 
+  const deleteProfile = (profileId: string) => {
+    if (deletingProfileId) return; // une suppression à la fois
+
+    setDeletingProfileId(profileId);
+    setDeleteErrors((current) => {
+      const next = { ...current };
+      delete next[profileId];
+      return next;
+    });
+
+    deleteProfileRequest(benchmarkId, profileId)
+      .then(() => {
+        setTailoringProfiles((current) => current.filter((p) => p.id !== profileId));
+        setSelectedProfile((current) => (current === profileId ? "" : current));
+      })
+      .catch((err) => {
+        setDeleteErrors((current) => ({ ...current, [profileId]: err.message }));
+      })
+      .finally(() => {
+        setDeletingProfileId(null);
+      });
+  };
+
   return {
     screen,
     distributionId,
@@ -109,10 +138,13 @@ export function useScanFlow(): UseScanFlowResult {
     tailoringProfiles,
     loadingProfiles,
     profilesError,
+    deletingProfileId,
+    deleteErrors,
     toggleVersion,
     resetSystemChoice,
     goToProfileScreen,
     goToSystemScreen,
     setSelectedProfile,
+    deleteProfile,
   };
 }

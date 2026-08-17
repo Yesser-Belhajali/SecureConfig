@@ -73,6 +73,13 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
         added,
         removed,
       });
+
+      // reset défensif : garantit un formulaire vide même si ce composant
+      // n'est pas démonté par la navigation qui suit
+      setProfileName("");
+      setProfileDescription("");
+      setFormOpen(false);
+
       navigate("/scan", {
         state: {
           screen: "profile",
