@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { SelectionMode } from "../model/useRuleSelection";
 import { useRuleSelection } from "../model/useRuleSelection";
-import { saveProfileSelection } from "../model/api";
+import { saveProfileSelection, updateProfile } from "../model/api";
 import type { Rule } from "../model/types";
 import RuleRow from "./RuleRow";
 import RuleDetailPanel from "./RuleDetailPanel";
@@ -20,6 +20,11 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
   const isViewOnly = mode.kind === "view";
   const profileId = mode.profileId;
   const isCreate = mode.kind === "edit" && !profileId;
+
+  // seuls les profils générés par create_tailoring_profile ont ce préfixe —
+  // un profil natif (CIS, STIG...) n'est jamais dans le fichier tailoring,
+  // donc PATCH échouerait systématiquement dessus (backend: -3)
+  const isTailoringProfile = !!profileId && profileId.startsWith("xccdf_org.secureconfig_profile_");
 
   const {
     rules,
@@ -42,6 +47,8 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
   const [severityFilter, setSeverityFilter] = useState("all");
   const [ruleSearch, setRuleSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   if (loading) {
     return <div className="rules-loading" role="status" aria-label="Chargement des règles"><span /></div>;
@@ -92,6 +99,27 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
       setSaveError((err as Error).message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!profileId) return;
+    setUpdating(true);
+    setUpdateError(null);
+    try {
+      const { added, removed } = diff();
+      await updateProfile(benchmarkId, profileId, { added, removed });
+      navigate("/scan", {
+        state: {
+          screen: "profile",
+          distributionId: location.state?.distributionId,
+          version: location.state?.version,
+        },
+      });
+    } catch (err) {
+      setUpdateError((err as Error).message);
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -270,9 +298,25 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
                   </span>
 
                   {!formOpen ? (
-                    <button type="button" className="rules-savebar-open" onClick={() => setFormOpen(true)}>
-                      Enregistrer ce profil
-                    </button>
+                    <div className="rules-savebar-actions">
+                      {!isCreate && isTailoringProfile && (
+                        <button
+                          type="button"
+                          className="rules-savebar-confirm"
+                          onClick={handleUpdate}
+                          disabled={updating}
+                        >
+                          {updating ? "Enregistrement..." : "Enregistrer les modifications"}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={!isCreate && isTailoringProfile ? "rules-savebar-cancel" : "rules-savebar-open"}
+                        onClick={() => setFormOpen(true)}
+                      >
+                        {isCreate ? "Créer le profil" : "Enregistrer comme nouveau profil"}
+                      </button>
+                    </div>
                   ) : (
                     <div className="rules-savebar-actions">
                       <button type="button" className="rules-savebar-cancel" onClick={() => setFormOpen(false)} disabled={saving}>
@@ -284,6 +328,10 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
                     </div>
                   )}
                 </div>
+
+                {updateError && (
+                  <p className="rules-save-error" style={{ padding: "0 1.15rem 1rem" }}>Erreur : {updateError}</p>
+                )}
               </div>
             )}
           </div>

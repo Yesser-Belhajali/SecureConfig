@@ -60,6 +60,11 @@ export interface SaveProfilePayload {
   removed: string[];
 }
 
+export interface UpdateProfilePayload {
+  added: string[];
+  removed: string[];
+}
+
 // Réponse du backend après création réussie (mappe le new_id renvoyé par create_tailoring_profile).
 export interface SaveProfileResponse {
   id: string;

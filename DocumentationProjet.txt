@@ -1242,9 +1242,36 @@ OSCAP_API bool xccdf_policy_model_register_start_callback(struct xccdf_policy_mo
 
 -J'ai corrigé le probleme de SegFault
 
+-Récap complet
+
+Le problème. create_tailoring_profile plantait (SIGSEGV) dès qu'un nouveau profil de tailoring était créé soit from-scratch (base_profile_id == NULL), soit en étendant un profil natif SSG — mais jamais quand il étendait un autre profil déjà présent dans le même tailoring.
+
+La cause, confirmée par lecture du code source d'OpenSCAP. xccdf_tailoring_add_profile (appelée pour attacher le profil fraîchement créé via xccdf_profile_new() au tailoring) ne fait que deux choses : xccdf_profile_set_tailoring(profile, true) et oscap_list_add(...). Elle ne rattache jamais le profil à un xccdf_benchmark. Plus tard, xccdf_policy_model_set_tailoring appelle xccdf_tailoring_resolve, qui pour chaque profil tente de trouver son parent via _xccdf_tailoring_profile_get_real_parent. Cette fonction a deux chemins : si le parent est un autre profil du même tailoring, tout va bien. Sinon (parent SSG natif, ou pas de parent du tout), elle appelle xccdf_benchmark_get_member(xccdf_profile_get_benchmark(profile), ...) — et xccdf_profile_get_benchmark(profile) retourne NULL sur notre profil fait main, provoquant le crash à l'intérieur de cette fonction.
+
+La solution implémentée. On évite complètement d'utiliser l'objet profil "fait main" pour toute résolution de policy :
+
+Le tailoring modifié est exporté vers un fichier temporaire (pas directement vers le vrai tailoring_path).
+Ce fichier temporaire est rechargé via resolve_profile_context — désormais capable d'accepter un chemin de tailoring explicite (tailoring_path_override), plutôt que de toujours reconstruire le chemin standard. Ce rechargement passe par le vrai parseur XML d'OpenSCAP, qui établit correctement le lien profil → benchmark.
+Sur ce profil rechargé (donc sûr), on résout une xccdf_policy et on vérifie que le nombre de règles sélectionnées est bien > 0.
+Si tout est valide, le fichier temporaire est publié atomiquement via rename() vers le vrai tailoring_path. Si quoi que ce soit échoue en cours de route, le fichier temporaire est supprimé (unlink) et le vrai fichier n'est jamais touché.
+
+Ce mécanisme élimine à la fois le crash et le risque qu'un fichier de tailoring invalide/partiel soit visible par d'autres requêtes concurrentes ou survive à un crash du processus.
+
+Où le fichier temporaire apparaît
+
+Dans le même dossier que le vrai fichier de tailoring — c'est une contrainte technique, pas un choix arbitraire : rename() n'est atomique que si source et destination sont sur le même système de fichiers, donc le fichier temporaire doit forcément vivre dans le même répertoire que sa destination finale.
+
+Concrètement, avec ton chemin standard (../data/<benchmark_id>/ssg-<benchmark_id>-tailoring.xml, relatif au dossier backend/ où tourne le serveur), le fichier temporaire apparaît :
+
+backend/../data/<benchmark_id>/ssg-<benchmark_id>-tailoring.xml.tmp.<pid>
+
+c'est-à-dire data/<benchmark_id>/ssg-<benchmark_id>-tailoring.xml.tmp.12345 (le <pid> est le PID du processus serveur, ajouté pour éviter toute collision si jamais deux créations se chevauchaient malgré le mutex de sérialisation). Il n'apparaît que brièvement, pendant la fenêtre entre l'export et soit le rename (succès → il disparaît, devenu le vrai fichier), soit l'unlink (échec → supprimé). Tu peux le voir en faisant un ls data/<benchmark_id>/ pile pendant qu'une création de profil est en cours, mais il ne devrait jamais persister après la fin de la requête.
 
 
 
+
+
+-Yesser optimisi el complexité mta3 el modification mta3 profil
 -Yesser fama mochkol ki yabda 3dad el rules s8ir mayeteb3ath chay sa3at tsir bara sala7ha
 -Yesser zid el logs
 -Yesser zid el ID mta3 les profils fel affichage

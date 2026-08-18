@@ -90,8 +90,9 @@ int profile_all_rules(const char *benchmark_id, const char *profile_id, struct r
 
 // -2 = nom déjà utilisé ; -3 = profil de base introuvable ;
 // -4 = profil from-scratch sans aucune règle ajoutée (check rapide) ;
-// -5 = profil résolu vide après héritage (check complet, ex: extends +
-// désélection totale des règles héritées)
+// -5 = profil résolu vide après héritage (check complet) ;
+// -6 = extends un profil de base sans aucun added/removed -> duplication
+// exacte, refusée pour l'instant
 int create_tailoring_profile(const char *benchmark_id, const char *name, const char *description,
                               const char *base_profile_id, // NULL = from-scratch
                               const char **added_ids, int added_count,
@@ -104,6 +105,15 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
 // -3 = profil introuvable dans le tailoring ; -4 = suppression refusée,
 // un autre profil du tailoring hérite (extends) de celui-ci
 int delete_tailoring_profile(const char *benchmark_id, const char *profile_id);
+
+
+
+// -1 = erreur générique ; -2 = pas de fichier tailoring ; -3 = profil introuvable ;
+// -5 = le profil édité deviendrait vide ; -6 = un autre profil du tailoring
+// deviendrait vide ; -7 = aucune modification demandée (added et removed vides)
+int update_tailoring_profile(const char *benchmark_id, const char *profile_id,
+                              const char **added_ids, int added_count,
+                              const char **removed_ids, int removed_count);
 
 
 #endif

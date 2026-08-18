@@ -54,9 +54,14 @@ static void scan_context_push(struct scan_context *ctx, char *json) {
     }
 
     ctx->items[ctx->count++] = framed;
-    pthread_mutex_unlock(&ctx->mutex);
 
-    MHD_resume_connection(ctx->connection);
+    bool need_resume = ctx->suspended;
+
+    if (need_resume) {
+        ctx->suspended = false;
+        MHD_resume_connection(ctx->connection);   // <-- appelé AVANT de déverrouiller
+    }
+    pthread_mutex_unlock(&ctx->mutex);
 }
 
 static void scan_context_reserve(struct scan_context *ctx, int capacity) {
@@ -95,16 +100,19 @@ static void producer_finish(struct scan_context *ctx) {
     pthread_mutex_lock(&ctx->mutex);
     bool client_gone = ctx->cancelled;
     int remaining = --ctx->ref_count;
+    bool need_resume = !client_gone && ctx->suspended;
+    if (need_resume) {
+        ctx->suspended = false;
+    }
     pthread_mutex_unlock(&ctx->mutex);
+
+    if (need_resume) {
+        MHD_resume_connection(ctx->connection);
+    }
 
     if (remaining == 0) {
         pthread_detach(ctx->producer_thread);
         scan_context_free(ctx);
-        return;
-    }
-
-    if (!client_gone) {
-        MHD_resume_connection(ctx->connection);
     }
 }
 
@@ -255,6 +263,8 @@ static int scan_start_callback(struct xccdf_rule *rule, void *usr) {
 
     const char *rule_id = xccdf_rule_get_id(rule);
     bool selected = xccdf_policy_is_item_selected(ctx->policy, rule_id);
+
+
     if (!selected) {
         return 0;
     }
@@ -300,7 +310,9 @@ static int scan_output_callback(struct xccdf_rule_result *rule_result, void *usr
         return 1;
     }
 
+
     xccdf_test_result_type_t result_type = xccdf_rule_result_get_result(rule_result);
+
     if (result_type == XCCDF_RESULT_NOT_SELECTED) return 0;
 
     const char *status = "UNKNOWN";
@@ -368,20 +380,20 @@ static void *producer_main(void *arg) {
     struct scan_context *ctx = arg;
     pthread_mutex_lock(&g_scan_serialize_mutex);
 
+    struct xccdf_session *session = NULL; // initialisé AVANT tout goto possible
+
     char ds_path[256];
     int n = snprintf(ds_path, sizeof(ds_path), "../data/%s/ssg-%s-ds.xml", ctx->benchmark_id, ctx->benchmark_id);
     if (n < 0 || (size_t)n >= sizeof(ds_path)) {
-        fprintf(stderr, "[scan] FAIL: ds_path truncated or snprintf error\n");
         goto fail;
     }
-    struct xccdf_session *session = xccdf_session_new(ds_path);
+
+    session = xccdf_session_new(ds_path);
     if (session == NULL) {
-        fprintf(stderr, "[scan] FAIL: xccdf_session_new returned NULL\n");
         goto fail;
     }
 
     if (xccdf_session_load_xccdf(session) != 0) {
-        fprintf(stderr, "[scan] FAIL: load_xccdf failed\n");
         goto fail;
     }
 
@@ -391,20 +403,16 @@ static void *producer_main(void *arg) {
         char tailoring_path[256];
         int n = snprintf(tailoring_path, sizeof(tailoring_path), "../data/%s/ssg-%s-tailoring.xml", ctx->benchmark_id, ctx->benchmark_id);
         if (n < 0 || (size_t)n >= sizeof(tailoring_path)) {
-            fprintf(stderr, "[scan] FAIL: tailoring_path truncated or snprintf error\n");
             goto fail;
         }
 
         if (access(tailoring_path, F_OK) != 0) {
-            fprintf(stderr, "[scan] FAIL: tailoring file not found for profile_id=%s\n", ctx->profile_id);
             goto fail;
         }
 
         xccdf_session_set_user_tailoring_file(session, tailoring_path);
 
         if (xccdf_session_load_tailoring(session) != 0) {
-            const char *err_desc = oscap_err_desc();
-            fprintf(stderr, "[scan] FAIL: load_tailoring failed - %s\n", err_desc ? err_desc : "(none)");
             goto fail;
         }
     }
@@ -412,26 +420,23 @@ static void *producer_main(void *arg) {
     struct xccdf_policy_model *policy_model = xccdf_session_get_policy_model(session);
 
     if (!xccdf_session_set_profile_id(session, ctx->profile_id)) {
-        fprintf(stderr, "[scan] FAIL: set_profile_id failed\n");
         goto fail;
     }
 
     ctx->policy = xccdf_policy_model_get_policy_by_id(policy_model, ctx->profile_id);
     if (ctx->policy == NULL) {
-        fprintf(stderr, "[scan] FAIL: no policy found for profile_id=%s\n", ctx->profile_id);
         goto fail;
     }
 
     int selected_count = xccdf_policy_get_selected_rules_count(ctx->policy);
+
     scan_context_reserve(ctx, selected_count);
 
     if (xccdf_session_load_cpe(session) != 0) {
-        fprintf(stderr, "[scan] FAIL: load_cpe failed\n");
         goto fail;
     }
 
     if (xccdf_session_load_oval(session) != 0) {
-        fprintf(stderr, "[scan] FAIL: load_oval failed\n");
         goto fail;
     }
 
@@ -439,7 +444,6 @@ static void *producer_main(void *arg) {
     xccdf_policy_model_register_output_callback(policy_model, scan_output_callback, ctx);
 
     if (xccdf_session_evaluate(session) != 0) {
-        fprintf(stderr, "[scan] FAIL: evaluate failed\n");
         goto fail;
     }
 
@@ -497,7 +501,6 @@ void scan_context_set_connection(struct scan_context *ctx, struct MHD_Connection
 bool scan_context_start(struct scan_context *ctx) {
     int ret = pthread_create(&ctx->producer_thread, NULL, producer_main, ctx);
     if (ret != 0) {
-        fprintf(stderr, "[scan] FAIL: pthread_create returned %d\n", ret);
         return false;
     }
     return true;
@@ -526,6 +529,7 @@ ssize_t scan_reader_callback(void *cls, uint64_t pos, char *buf, size_t max) {
     struct scan_context *ctx = cls;
 
     pthread_mutex_lock(&ctx->mutex);
+
 
     if (ctx->read_index < ctx->count) {
         const char *item = ctx->items[ctx->read_index];
@@ -569,8 +573,9 @@ ssize_t scan_reader_callback(void *cls, uint64_t pos, char *buf, size_t max) {
             return MHD_CONTENT_READER_END_WITH_ERROR;
         case SCAN_RUNNING:
         default:
+            ctx->suspended = true;
+            MHD_suspend_connection(ctx->connection);   // <-- appelé AVANT de déverrouiller
             pthread_mutex_unlock(&ctx->mutex);
-            MHD_suspend_connection(ctx->connection);
             return 0;
     }
 }

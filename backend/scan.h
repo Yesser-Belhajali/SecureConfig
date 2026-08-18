@@ -51,6 +51,7 @@ struct scan_context {
     int ref_count;
     bool cancelled;
     enum scan_state state;
+    bool suspended;   // vrai si la connexion est actuellement suspendue (protégé par mutex)
 };
 
 struct scan_context *scan_context_new(const char *benchmark_id, const char *profile_id);

@@ -226,12 +226,100 @@ static void handle_create_profile(const char *benchmark_id, const char *body,
         *response_text = "{\"error\":\"Ce profil ne contient aucune règle une fois résolu — vérifiez votre sélection.\"}";
         *status_code = MHD_HTTP_BAD_REQUEST;
     }
+    else if (ret == -6) {
+        *response_text = "{\"error\":\"Aucune règle ajoutée ou retirée par rapport au profil de base — dupliquer un profil à l'identique n'est pas encore pris en charge.\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+    }
     else {
         *response_text = "{\"error\":\"failed to create profile\"}";
         *status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
     }
 
     cJSON_Delete(json);
+}
+
+static void handle_update_profile(const char *benchmark_id, const char *profile_id, const char *body,
+                                    const char **response_text, int *status_code,
+                                    enum MHD_ResponseMemoryMode *mem_mode) {
+    cJSON *json = cJSON_Parse(body != NULL ? body : "");
+    if (json == NULL) {
+        *response_text = "{\"error\":\"invalid json\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+        return;
+    }
+
+    cJSON *added_item = cJSON_GetObjectItemCaseSensitive(json, "added");
+    cJSON *removed_item = cJSON_GetObjectItemCaseSensitive(json, "removed");
+
+    if (!cJSON_IsArray(added_item) || !cJSON_IsArray(removed_item)) {
+        *response_text = "{\"error\":\"added/removed arrays required\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+        cJSON_Delete(json);
+        return;
+    }
+
+    int added_count = cJSON_GetArraySize(added_item);
+    int removed_count = cJSON_GetArraySize(removed_item);
+
+    const char **added_ids = added_count > 0 ? malloc(added_count * sizeof(char *)) : NULL;
+    const char **removed_ids = removed_count > 0 ? malloc(removed_count * sizeof(char *)) : NULL;
+
+    bool arrays_ok = (added_count == 0 || added_ids != NULL) && (removed_count == 0 || removed_ids != NULL);
+
+    for (int i = 0; arrays_ok && i < added_count; i++) {
+        cJSON *item = cJSON_GetArrayItem(added_item, i);
+        if (!cJSON_IsString(item)) { arrays_ok = false; break; }
+        added_ids[i] = item->valuestring;
+    }
+    for (int i = 0; arrays_ok && i < removed_count; i++) {
+        cJSON *item = cJSON_GetArrayItem(removed_item, i);
+        if (!cJSON_IsString(item)) { arrays_ok = false; break; }
+        removed_ids[i] = item->valuestring;
+    }
+
+    if (!arrays_ok) {
+        *response_text = "{\"error\":\"added/removed must be arrays of strings\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+        free(added_ids);
+        free(removed_ids);
+        cJSON_Delete(json);
+        return;
+    }
+
+    int ret = update_tailoring_profile(benchmark_id, profile_id, added_ids, added_count, removed_ids, removed_count);
+
+    free(added_ids);
+    free(removed_ids);
+    cJSON_Delete(json);
+
+    if (ret == 0) {
+        *response_text = "{\"updated\":true}";
+        *status_code = MHD_HTTP_OK;
+    }
+    else if (ret == -2) {
+        *response_text = "{\"error\":\"no tailoring file for this benchmark\"}";
+        *status_code = MHD_HTTP_NOT_FOUND;
+    }
+    else if (ret == -3) {
+        *response_text = "{\"error\":\"profile not found\"}";
+        *status_code = MHD_HTTP_NOT_FOUND;
+    }
+    else if (ret == -5) {
+        *response_text = "{\"error\":\"Cette modification viderait entièrement le profil.\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+    }
+    else if (ret == -6) {
+        *response_text = "{\"error\":\"Cette modification viderait un autre profil qui en hérite.\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+    }
+    else if (ret == -7) {
+        *response_text = "{\"error\":\"Aucune modification à enregistrer.\"}";
+        *status_code = MHD_HTTP_BAD_REQUEST;
+    }
+    else {
+        *response_text = "{\"error\":\"failed to update profile\"}";
+        *status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
+    }
 }
 
 
@@ -274,7 +362,7 @@ static enum MHD_Result handle_request(void *cls,
     if (strcmp(method, "OPTIONS") == 0) {
         struct MHD_Response *response = MHD_create_response_from_buffer(0, "", MHD_RESPMEM_PERSISTENT);
         MHD_add_response_header(response, "Access-Control-Allow-Origin", "*");
-        MHD_add_response_header(response, "Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+        MHD_add_response_header(response, "Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
         MHD_add_response_header(response, "Access-Control-Allow-Headers", "Content-Type");
         enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
         MHD_destroy_response(response);
@@ -445,6 +533,10 @@ static enum MHD_Result handle_request(void *cls,
             response_text = "{\"error\":\"failed to delete profile\"}";
             status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
         }
+    }
+    // PATCH /benchmarks/{id}/profiles/{id} -> modification d'un profil de tailoring existant
+    else if (strcmp(method, "PATCH") == 0 && extract_single_profile_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
+        handle_update_profile(benchmark_id, profile_id, con_info->body, &response_text, &status_code, &mem_mode);
     }
     else {
         response_text = "{\"error\":\"not found\"}";

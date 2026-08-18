@@ -1,5 +1,4 @@
-import type { Profile, ProfilesResponse, Rule, SaveProfilePayload, SaveProfileResponse } from "./types";
-
+import type { Profile, ProfilesResponse, Rule, SaveProfilePayload, SaveProfileResponse, UpdateProfilePayload } from "./types";
 export const API_BASE_URL = "http://localhost:8000";
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -68,4 +67,20 @@ export async function deleteProfile(
     method: "DELETE",
   });
   return handleResponse<{ deleted: boolean }>(response);
+}
+
+// PATCH /benchmarks/{benchmarkId}/profiles/{profileId}
+// Modifie en place un profil de tailoring déjà existant — échoue si profileId
+// est un profil natif (jamais présent dans le fichier tailoring côté backend).
+export async function updateProfile(
+  benchmarkId: string,
+  profileId: string,
+  payload: UpdateProfilePayload
+): Promise<{ updated: boolean }> {
+  const response = await fetch(`${API_BASE_URL}/benchmarks/${benchmarkId}/profiles/${profileId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<{ updated: boolean }>(response);
 }

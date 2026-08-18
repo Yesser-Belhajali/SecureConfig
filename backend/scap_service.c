@@ -1090,7 +1090,12 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
     }
 
     if(base_profile_id==NULL && added_count==0){
-        return -4; // profil "from scratch" sans aucune règle sélectionnée
+    return -4; // profil "from scratch" sans aucune règle sélectionnée
+}
+
+    if(base_profile_id != NULL && added_count==0 && removed_count==0){
+        return -6; // aucun changement par rapport au profil de base -> duplication
+                    // exacte, pas encore supportée (fonctionnalité "dupliquer" à part, plus tard)
     }
 
 
@@ -1200,7 +1205,7 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
         return -1;
     }
 
-    if(!xccdf_profile_set_id(profile, new_id) || !xccdf_profile_set_tailoring(profile, true)){
+    if(!xccdf_profile_set_id(profile, new_id)){
         xccdf_profile_free(xccdf_profile_to_item(profile));
         xccdf_tailoring_free(tailoring);
         xccdf_benchmark_free(benchmark);
@@ -1401,6 +1406,189 @@ int delete_tailoring_profile(const char *benchmark_id, const char *profile_id){
 
     xccdf_tailoring_free(tailoring);
     xccdf_benchmark_free(benchmark);
+
+    if(export_ret < 0){
+        return -1;
+    }
+
+    return 0;
+}
+
+
+// cherche un <select> existant pour rule_id dans profile ; si trouvé, met à
+// jour sa valeur selected en place ; sinon, en crée un nouveau. Garantit
+// qu'il n'existe jamais plus d'un <select> par idref dans le profil —
+// évite tout besoin de nettoyage ou de dépendance sur un ordre de
+// résolution des doublons.
+static bool apply_select(struct xccdf_profile *profile, const char *rule_id, bool selected) {
+    struct xccdf_select_iterator *it = xccdf_profile_get_selects(profile);
+    if (it != NULL) {
+        while (xccdf_select_iterator_has_more(it)) {
+            struct xccdf_select *existing = xccdf_select_iterator_next(it);
+            if (strcmp(xccdf_select_get_item(existing), rule_id) == 0) {
+                bool ok = xccdf_select_set_selected(existing, selected);
+                xccdf_select_iterator_free(it);
+                return ok;
+            }
+        }
+        xccdf_select_iterator_free(it);
+    }
+
+    struct xccdf_select *sel = xccdf_select_new();
+    bool ok = (sel != NULL)
+        && xccdf_select_set_item(sel, rule_id)
+        && xccdf_select_set_selected(sel, selected)
+        && xccdf_profile_add_select(profile, sel);
+    if (!ok && sel != NULL) {
+        xccdf_select_free(sel);
+    }
+    return ok;
+}
+
+// modifie la sélection de règles d'un profil de tailoring déjà existant.
+// NE modifie PAS le titre/description (aucune API confirmée pour remplacer
+// une liste oscap_text existante — seulement l'ajouter, ce qui dupliquerait
+// silencieusement sans garantie sur l'ordre de résolution, contrairement
+// aux selects où get_item/set_selected permettent une mutation en place sûre).
+//
+// Contrairement à create_tailoring_profile, le profil édité est TOUJOURS un
+// objet parsé depuis le fichier tailoring existant (jamais construit via
+// xccdf_profile_new()) — donc pas de risque du crash confirmé plus tôt
+// (xccdf_profile_get_benchmark retournant NULL). On peut donc résoudre
+// entièrement en mémoire, valider, et n'exporter qu'une fois tout confirmé
+// — pas besoin d'exporter-puis-rollback comme pour create.
+int update_tailoring_profile(const char *benchmark_id, const char *profile_id,
+                              const char **added_ids, int added_count,
+                              const char **removed_ids, int removed_count){
+
+    if(benchmark_id==NULL || profile_id==NULL){
+        return -1;
+    }
+
+    if(added_count==0 && removed_count==0){
+        return -7; // aucune modification demandée
+    }
+
+    char ds_path[256], tailoring_path[256];
+    int n1=snprintf(ds_path,sizeof(ds_path),"../data/%s/ssg-%s-ds.xml",benchmark_id,benchmark_id);
+    int n2=snprintf(tailoring_path,sizeof(tailoring_path),"../data/%s/ssg-%s-tailoring.xml",benchmark_id,benchmark_id);
+    if(n1<0 || (size_t)n1>=sizeof(ds_path) || n2<0 || (size_t)n2>=sizeof(tailoring_path)){
+        return -1;
+    }
+
+    if(access(tailoring_path, F_OK) != 0){
+        return -2; // pas de fichier de tailoring -> le profil ne peut pas y être
+    }
+
+    struct xccdf_benchmark *benchmark=NULL;
+    if(load_benchmark_from_ds(ds_path,&benchmark)!=0){
+        return -1;
+    }
+
+    struct oscap_source *tailoring_source = oscap_source_new_from_file(tailoring_path);
+    if(tailoring_source == NULL){
+        xccdf_benchmark_free(benchmark);
+        return -1;
+    }
+
+    struct xccdf_tailoring *tailoring = xccdf_tailoring_import_source(tailoring_source, benchmark);
+    if(tailoring == NULL){
+        oscap_source_free(tailoring_source);
+        xccdf_benchmark_free(benchmark);
+        return -1;
+    }
+    oscap_source_free(tailoring_source);
+
+    struct xccdf_profile *profile = xccdf_tailoring_get_profile_by_id(tailoring, profile_id);
+    if(profile == NULL){
+        xccdf_tailoring_free(tailoring);
+        xccdf_benchmark_free(benchmark);
+        return -3; // profil introuvable dans le tailoring
+    }
+
+    // applique le diff : mutation en place, jamais de duplication
+    for(int i=0; i<added_count; i++){
+        if(!apply_select(profile, added_ids[i], true)){
+            xccdf_tailoring_free(tailoring);
+            xccdf_benchmark_free(benchmark);
+            return -1;
+        }
+    }
+    for(int i=0; i<removed_count; i++){
+        if(!apply_select(profile, removed_ids[i], false)){
+            xccdf_tailoring_free(tailoring);
+            xccdf_benchmark_free(benchmark);
+            return -1;
+        }
+    }
+
+    // à partir d'ici, policy_model possède benchmark ET tailoring - ne plus
+    // les free séparément, seul policy_model_free les libère ensemble
+    struct xccdf_policy_model *policy_model = xccdf_policy_model_new(benchmark);
+    if(policy_model == NULL){
+        xccdf_tailoring_free(tailoring);
+        xccdf_benchmark_free(benchmark);
+        return -1;
+    }
+    if(!xccdf_policy_model_set_tailoring(policy_model, tailoring)){
+        xccdf_policy_model_free(policy_model);
+        xccdf_tailoring_free(tailoring);
+        return -1;
+    }
+    // tous les profils de ce tailoring sont parsés depuis le fichier -> sûr
+    // (aucun n'a jamais été construit via xccdf_profile_new() dans ce chemin)
+
+    // vérifie le profil édité lui-même
+    struct xccdf_policy *edited_policy = xccdf_policy_new(policy_model, profile);
+    if(edited_policy == NULL){
+        xccdf_policy_model_free(policy_model);
+        return -1;
+    }
+    int edited_count = xccdf_policy_get_selected_rules_count(edited_policy);
+    xccdf_policy_free(edited_policy);
+
+    if(edited_count <= 0){
+        xccdf_policy_model_free(policy_model);
+        return -5; // le profil édité lui-même devient vide
+    }
+
+    // vérifie TOUS les autres profils du tailoring (approche simple retenue
+    // plutôt qu'un parcours du graphe d'héritage) : un descendant qui héritait
+    // de règles maintenant désélectionnées peut se retrouver vide sans que
+    // rien ne l'ait jamais désigné explicitement comme "descendant"
+    struct xccdf_profile_iterator *all_it = xccdf_tailoring_get_profiles(tailoring);
+    if(all_it != NULL){
+        while(xccdf_profile_iterator_has_more(all_it)){
+            struct xccdf_profile *other = xccdf_profile_iterator_next(all_it);
+            if(other == profile){
+                continue; // déjà vérifié ci-dessus
+            }
+
+            struct xccdf_policy *other_policy = xccdf_policy_new(policy_model, other);
+            if(other_policy == NULL){
+                // échec technique, distinct d'un profil réellement vide
+                xccdf_profile_iterator_free(all_it);
+                xccdf_policy_model_free(policy_model);
+                return -1;
+            }
+
+            int other_count = xccdf_policy_get_selected_rules_count(other_policy);
+            xccdf_policy_free(other_policy);
+
+            if(other_count <= 0){
+                xccdf_profile_iterator_free(all_it);
+                xccdf_policy_model_free(policy_model);
+                return -6; // un autre profil du tailoring devient vide suite à cette édition
+            }
+        }
+        xccdf_profile_iterator_free(all_it);
+    }
+
+    // tout est validé -> exporte maintenant
+    const struct xccdf_version_info *version_info = xccdf_benchmark_get_schema_version(benchmark);
+    int export_ret = xccdf_tailoring_export(tailoring, tailoring_path, version_info);
+
+    xccdf_policy_model_free(policy_model); // libère tailoring + benchmark ensemble
 
     if(export_ret < 0){
         return -1;
