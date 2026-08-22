@@ -42,15 +42,15 @@ export function Header() {
     `text-sm font-medium transition-colors duration-150 ${
       isActive
         ? 'text-[#A78BFA]'
-        : 'text-[#94A3B8] hover:text-[#E2E8F0]'
+        : 'text-[#6B7280] hover:text-[#1E1B29]'
     }`
 
   return (
     <header
       className="sticky top-0 z-50 border-b transition-transform duration-300 ease-out"
       style={{
-        backgroundColor: 'rgba(13,15,18,0.92)',
-        borderColor: 'rgba(255,255,255,0.07)',
+        backgroundColor: 'rgba(254, 254, 255, 0.92)',
+        borderColor: 'rgba(15,23,42,0.07)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         transform: isHeaderHidden ? 'translateY(-100%)' : 'translateY(0)',
@@ -61,7 +61,7 @@ export function Header() {
           <span className="text-[#8B5CF6] group-hover:text-[#A78BFA] transition-colors">
             <ShieldIcon />
           </span>
-          <span className="font-semibold text-[#E2E8F0] tracking-tight">
+          <span className="font-semibold text-[#1E1B29] tracking-tight">
             Secure<span className="text-[#8B5CF6]">Config</span>
           </span>
         </NavLink>
@@ -85,14 +85,14 @@ export function Header() {
         </nav>
 
         <div className="md:hidden flex items-center gap-3">
-          <button className="text-[#94A3B8] hover:text-[#E2E8F0] transition-colors" onClick={() => setOpen(o => !o)} aria-label="Ouvrir le menu">{open ? <CloseIcon /> : <MenuIcon />}</button>
+          <button className="text-[#6B7280] hover:text-[#1E1B29] transition-colors" onClick={() => setOpen(o => !o)} aria-label="Ouvrir le menu">{open ? <CloseIcon /> : <MenuIcon />}</button>
         </div>
       </div>
 
       {open && (
         <div
           className="md:hidden border-t px-6 py-4 flex flex-col gap-4"
-          style={{ borderColor: 'rgba(255,255,255,0.07)', backgroundColor: '#0D0F12' }}
+          style={{ borderColor: 'rgba(15,23,42,0.07)', backgroundColor: '#FFFFFF' }}
         >
           <NavLink to="/" end className={linkClass} onClick={() => setOpen(false)}>Home</NavLink>
           <NavLink to="/scan" className={linkClass} onClick={() => setOpen(false)}>Scan</NavLink>

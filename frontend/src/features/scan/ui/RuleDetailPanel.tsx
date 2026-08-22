@@ -1,5 +1,5 @@
 // features/scan/ui/RuleDetailPanel.tsx
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Rule, RuleResult } from "../model/types";
 import { groupReferencesByHref } from "../model/referenceLabels";
 
@@ -27,6 +27,13 @@ function fixSystemLabel(system: string): string {
 }
 
 export default function RuleDetailPanel({ rule, onClose }: RuleDetailPanelProps) {
+  const [openFixes, setOpenFixes] = useState<Set<number>>(new Set());
+
+  // Réinitialise les remédiations dépliées à chaque changement de règle
+  useEffect(() => {
+    setOpenFixes(new Set());
+  }, [rule]);
+
   useEffect(() => {
     if (!rule) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -39,6 +46,15 @@ export default function RuleDetailPanel({ rule, onClose }: RuleDetailPanelProps)
   if (!rule) return null;
 
   const result = isRuleResult(rule) ? rule : null;
+
+  function toggleFix(i: number) {
+    setOpenFixes((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
 
   return (
     <div className="scan-result-backdrop" onClick={onClose}>
@@ -123,12 +139,23 @@ export default function RuleDetailPanel({ rule, onClose }: RuleDetailPanelProps)
             <p className="scan-result-no-fix">Aucun script de remédiation disponible.</p>
           ) : (
             <ul className="rule-fix-list">
-              {rule.fixes.map((fix, i) => (
-                <li key={i} className="rule-fix-item">
-                  <div className="rule-fix-system">{fixSystemLabel(fix.system)}</div>
-                  <pre className="rule-fix-content">{fix.content}</pre>
-                </li>
-              ))}
+              {rule.fixes.map((fix, i) => {
+                const isOpen = openFixes.has(i);
+                return (
+                  <li key={i} className="rule-fix-item">
+                    <button
+                      type="button"
+                      className="rule-fix-toggle"
+                      onClick={() => toggleFix(i)}
+                      aria-expanded={isOpen}
+                    >
+                      <span className="rule-fix-system">{fixSystemLabel(fix.system)}</span>
+                      <span className="rule-fix-chevron">{isOpen ? "▾" : "▸"}</span>
+                    </button>
+                    {isOpen && <pre className="rule-fix-content">{fix.content}</pre>}
+                  </li>
+                );
+              })}
             </ul>
           )}
 

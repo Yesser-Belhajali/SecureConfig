@@ -1270,6 +1270,27 @@ c'est-à-dire data/<benchmark_id>/ssg-<benchmark_id>-tailoring.xml.tmp.12345 (le
 
 
 
+-Yesser zid tfa9ed hethda yodhholri el producteur lezmou el oscap_init() mte3ou zeda
+
+/**
+ * Initialize OpenSCAP library.
+ *
+ * This is currently needed only in multithreaded applications
+ * (needs to be called before any child threads are spawned)
+ * or applications using the XSLT facility w/ EXSLT extensions.
+ * However, it is a good practice to call this function
+ * always at the beginning of the program execution.
+ */
+OSCAP_API void oscap_init(void);
+
+/**
+ * Release library internal caches.
+ *
+ * This function should be called once you finish working with
+ * any of the libraries included in OpenScap framework.
+ * It frees internally allocated memory, e.g. cache of the XML parser.
+ */
+OSCAP_API void oscap_cleanup(void);
 
 -Yesser optimisi el complexité mta3 el modification mta3 profil
 -Yesser fama mochkol ki yabda 3dad el rules s8ir mayeteb3ath chay sa3at tsir bara sala7ha

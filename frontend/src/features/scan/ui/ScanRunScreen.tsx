@@ -1,5 +1,6 @@
 // features/scan/ui/ScanRunScreen.tsx
 import { useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useScanStream } from "../model/useScanStream";
 import ScanResultRow from "./ScanResultRow";
 import RuleDetailPanel from "./RuleDetailPanel";
@@ -9,6 +10,11 @@ import "./rule-panel.css";
 interface ScanRunScreenProps {
   benchmarkId: string;
   profileId: string;
+}
+
+interface ScanRunLocationState {
+  distributionId?: string;
+  version?: string;
 }
 
 const SEVERITIES = ["all", "high", "medium", "low", "unknown"];
@@ -25,6 +31,10 @@ function matchesStatusFilter(
 }
 
 export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const navigationState = location.state as ScanRunLocationState | null;
+
   const { inProgressTitle, results, totalRules, score, status } = useScanStream(
     benchmarkId,
     profileId,
@@ -69,6 +79,22 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
 
   return (
     <div className="scan-page">
+      <button
+        type="button"
+        className="scan-back-button"
+        onClick={() =>
+          navigate(`/benchmarks/${benchmarkId}/profiles/${profileId}/view`, {
+            state: {
+              distributionId: navigationState?.distributionId,
+              version: navigationState?.version,
+            },
+          })
+        }
+      >
+        <span aria-hidden="true">←</span>
+        Retour aux règles
+      </button>
+
       <div className="scan-header-row">
         <h1>Résultats</h1>
 

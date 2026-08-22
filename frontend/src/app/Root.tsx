@@ -4,7 +4,7 @@ import { Footer } from '../components/Footer'
 
 export function Root() {
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0D0F12' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#ffffff' }}>
       <Header />
       <main className="flex-1">
         <Outlet />

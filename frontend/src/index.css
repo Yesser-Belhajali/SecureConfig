@@ -9,16 +9,16 @@ html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
-  background: #07090D;
-  color: #E2E8F0;
+  background: #ffffff;
+  color: #1e1b29;
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-* { scrollbar-width: thin; scrollbar-color: rgba(167, 139, 250, .55) #0d1016; }
+* { scrollbar-width: thin; scrollbar-color: rgba(139, 92, 246, .55) #f1eefc; }
 ::-webkit-scrollbar { width: 9px; height: 9px; }
-::-webkit-scrollbar-track { background: #0d1016; }
-::-webkit-scrollbar-thumb { background: linear-gradient(#8b5cf6, #6d28d9); border: 2px solid #0d1016; border-radius: 999px; }
+::-webkit-scrollbar-track { background: #f1eefc; }
+::-webkit-scrollbar-thumb { background: linear-gradient(#8b5cf6, #6d28d9); border: 2px solid #f1eefc; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #a78bfa; }
 
 

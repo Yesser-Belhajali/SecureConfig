@@ -9,8 +9,8 @@ export function NotFound() {
       >
         404
       </p>
-      <h1 className="text-xl font-semibold text-[#E2E8F0] mb-3">Page introuvable</h1>
-      <p className="text-[#64748B] mb-8">Cette route n'existe pas dans le datastream.</p>
+      <h1 className="text-xl font-semibold text-[#1E1B29] mb-3">Page introuvable</h1>
+      <p className="text-[#8B8794] mb-8">Cette route n'existe pas dans le datastream.</p>
       <NavLink
         to="/"
         className="px-6 py-3 rounded-lg font-medium text-sm text-white transition-all duration-150"

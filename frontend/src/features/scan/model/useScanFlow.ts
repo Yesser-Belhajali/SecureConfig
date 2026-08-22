@@ -57,6 +57,18 @@ export function useScanFlow(): UseScanFlowResult {
   const benchmarkId = selectedDistribution ? buildBenchmarkId(distributionId, version) : "";
   const canContinue = Boolean(benchmarkId);
 
+  // Resynchronise l'état interne à chaque nouvelle navigation vers /scan,
+  // même si React ne démonte pas le composant entre deux visites (même route).
+  // Dépendances sur des primitives (string), pas sur l'objet navigationState
+  // lui-même : location.state est recréé à chaque render, donc le mettre
+  // directement en dépendance provoquerait une boucle infinie de l'effet.
+  useEffect(() => {
+    if (navigationState?.screen) setScreen(navigationState.screen);
+    if (navigationState?.distributionId !== undefined) setDistributionId(navigationState.distributionId);
+    if (navigationState?.version !== undefined) setVersion(navigationState.version);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigationState?.screen, navigationState?.distributionId, navigationState?.version]);
+
   useEffect(() => {
     if (screen !== "profile" || !benchmarkId) return;
 

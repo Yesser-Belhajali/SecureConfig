@@ -59,10 +59,10 @@ export function About() {
         >
           À propos
         </p>
-        <h1 className="text-4xl font-bold text-[#E2E8F0] leading-tight mb-4">
+        <h1 className="text-4xl font-bold text-[#1E1B29] leading-tight mb-4">
           Comprendre SCAP<br />et ce projet
         </h1>
-        <p className="text-[#64748B] text-lg max-w-2xl">
+        <p className="text-[#8B8794] text-lg max-w-2xl">
           Contexte technique, outils utilisés, et historique du développement.
         </p>
       </div>
@@ -71,10 +71,10 @@ export function About() {
       <section className="mb-16">
         <div
           className="rounded-xl p-8 border mb-6"
-          style={{ backgroundColor: '#13171E', borderColor: 'rgba(255,255,255,0.07)' }}
+          style={{ backgroundColor: '#FAF9FD', borderColor: 'rgba(15,23,42,0.07)' }}
         >
-          <h2 className="text-xl font-bold text-[#E2E8F0] mb-3">Qu'est-ce que SCAP ?</h2>
-          <p className="text-[#94A3B8] leading-relaxed mb-6">
+          <h2 className="text-xl font-bold text-[#1E1B29] mb-3">Qu'est-ce que SCAP ?</h2>
+          <p className="text-[#6B7280] leading-relaxed mb-6">
             <strong className="text-[#C4B5FD]">SCAP (Security Content Automation Protocol)</strong> est un ensemble de standards
             développé par le NIST pour automatiser la vérification de la conformité de sécurité d'un système.
             Plutôt que de parcourir manuellement une checklist de plusieurs centaines de règles, SCAP
@@ -86,7 +86,7 @@ export function About() {
               <div
                 key={c.id}
                 className="rounded-lg p-4 border"
-                style={{ backgroundColor: '#0D0F12', borderColor: 'rgba(255,255,255,0.06)' }}
+                style={{ backgroundColor: '#FFFFFF', borderColor: 'rgba(15,23,42,0.06)' }}
               >
                 <div className="flex items-start gap-3">
                   <span
@@ -101,8 +101,8 @@ export function About() {
                     {c.id}
                   </span>
                   <div>
-                    <p className="text-xs font-medium text-[#CBD5E1] mb-1">{c.name}</p>
-                    <p className="text-xs text-[#64748B] leading-relaxed">{c.desc}</p>
+                    <p className="text-xs font-medium text-[#3D3555] mb-1">{c.name}</p>
+                    <p className="text-xs text-[#8B8794] leading-relaxed">{c.desc}</p>
                   </div>
                 </div>
               </div>
@@ -115,15 +115,15 @@ export function About() {
       <section className="mb-16">
         <div
           className="rounded-xl p-8 border"
-          style={{ backgroundColor: '#13171E', borderColor: 'rgba(255,255,255,0.07)' }}
+          style={{ backgroundColor: '#FAF9FD', borderColor: 'rgba(15,23,42,0.07)' }}
         >
-          <h2 className="text-xl font-bold text-[#E2E8F0] mb-3">OpenSCAP</h2>
-          <p className="text-[#94A3B8] leading-relaxed mb-4">
+          <h2 className="text-xl font-bold text-[#1E1B29] mb-3">OpenSCAP</h2>
+          <p className="text-[#6B7280] leading-relaxed mb-4">
             <strong className="text-[#C4B5FD]">OpenSCAP</strong> est l'implémentation open source de référence du standard SCAP,
             développée par <strong className="text-[#C4B5FD]">Red Hat</strong>. C'est le moteur utilisé dans RHEL, Fedora, et de nombreux
             outils de conformité enterprise.
           </p>
-          <p className="text-[#94A3B8] leading-relaxed mb-6">
+          <p className="text-[#6B7280] leading-relaxed mb-6">
             Ce projet s'appuie directement sur <code
               className="px-1.5 py-0.5 rounded text-[#A78BFA] text-sm"
               style={{ backgroundColor: 'rgba(139,92,246,0.12)', fontFamily: "'JetBrains Mono', monospace" }}
@@ -149,10 +149,10 @@ export function About() {
       <section className="mb-20">
         <div
           className="rounded-xl p-8 border"
-          style={{ backgroundColor: '#13171E', borderColor: 'rgba(255,255,255,0.07)' }}
+          style={{ backgroundColor: '#FAF9FD', borderColor: 'rgba(15,23,42,0.07)' }}
         >
-          <h2 className="text-xl font-bold text-[#E2E8F0] mb-3">ComplianceAsCode / content</h2>
-          <p className="text-[#94A3B8] leading-relaxed mb-4">
+          <h2 className="text-xl font-bold text-[#1E1B29] mb-3">ComplianceAsCode / content</h2>
+          <p className="text-[#6B7280] leading-relaxed mb-4">
             <strong className="text-[#C4B5FD]">ComplianceAsCode/content</strong> est la source des profils de sécurité utilisés
             par cette plateforme. Ce projet communautaire produit le <strong className="text-[#C4B5FD]">SCAP Security Guide (SSG)</strong> — une
             collection de datastreams SCAP couvrant les profils CIS, STIG DoD, PCI-DSS, et bien d'autres, pour
@@ -161,21 +161,21 @@ export function About() {
 
           <div
             className="rounded-lg p-5 mb-6 border"
-            style={{ backgroundColor: '#0D0F12', borderColor: 'rgba(255,255,255,0.06)' }}
+            style={{ backgroundColor: '#FFFFFF', borderColor: 'rgba(15,23,42,0.06)' }}
           >
-            <p className="text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <p className="text-xs font-semibold text-[#8B8794] uppercase tracking-wider mb-3" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               Contenu upstream vs tailoring
             </p>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-medium text-[#94A3B8] mb-1">Profil upstream</p>
-                <p className="text-xs text-[#64748B] leading-relaxed">
+                <p className="text-xs font-medium text-[#6B7280] mb-1">Profil upstream</p>
+                <p className="text-xs text-[#8B8794] leading-relaxed">
                   Les profils officiels compilés par ComplianceAsCode, non modifiés. Référence de conformité reconnue.
                 </p>
               </div>
               <div>
                 <p className="text-xs font-medium text-[#A78BFA] mb-1">Personnalisation via tailoring</p>
-                <p className="text-xs text-[#64748B] leading-relaxed">
+                <p className="text-xs text-[#8B8794] leading-relaxed">
                   Mécanisme XCCDF permettant d'activer/désactiver des règles ou modifier leurs paramètres sans toucher au contenu source.
                 </p>
               </div>
@@ -200,11 +200,11 @@ export function About() {
       <section>
         <p
           className="text-xs font-semibold uppercase tracking-widest mb-3"
-          style={{ color: '#64748B', fontFamily: "'JetBrains Mono', monospace" }}
+          style={{ color: '#8B8794', fontFamily: "'JetBrains Mono', monospace" }}
         >
           Historique
         </p>
-        <h2 className="text-2xl font-bold text-[#E2E8F0] mb-10">Genèse du projet</h2>
+        <h2 className="text-2xl font-bold text-[#1E1B29] mb-10">Genèse du projet</h2>
 
         <div className="relative">
           {/* Vertical line */}
@@ -221,7 +221,7 @@ export function About() {
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center z-10 relative border"
                     style={{
-                      backgroundColor: '#0D0F12',
+                      backgroundColor: '#FFFFFF',
                       borderColor: 'rgba(139,92,246,0.35)',
                     }}
                   >
@@ -237,7 +237,7 @@ export function About() {
                 {/* Content */}
                 <div
                   className="flex-1 rounded-xl p-5 border -mt-1"
-                  style={{ backgroundColor: '#13171E', borderColor: 'rgba(255,255,255,0.07)' }}
+                  style={{ backgroundColor: '#FAF9FD', borderColor: 'rgba(15,23,42,0.07)' }}
                 >
                   <p
                     className="text-xs mb-1"
@@ -245,8 +245,8 @@ export function About() {
                   >
                     {step.date}
                   </p>
-                  <h3 className="font-semibold text-[#E2E8F0] mb-2">{step.title}</h3>
-                  <p className="text-sm text-[#64748B] leading-relaxed">{step.desc}</p>
+                  <h3 className="font-semibold text-[#1E1B29] mb-2">{step.title}</h3>
+                  <p className="text-sm text-[#8B8794] leading-relaxed">{step.desc}</p>
                 </div>
               </div>
             ))}

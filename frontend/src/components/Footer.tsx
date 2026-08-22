@@ -4,26 +4,26 @@ export function Footer() {
   return (
     <footer
       className="border-t mt-24"
-      style={{ borderColor: 'rgba(255,255,255,0.07)' }}
+      style={{ borderColor: 'rgba(15,23,42,0.07)' }}
     >
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {/* Brand */}
           <div>
-            <p className="font-semibold text-[#E2E8F0] mb-3">
+            <p className="font-semibold text-[#1E1B29] mb-3">
               Secure<span className="text-[#8B5CF6]">Config</span>
             </p>
-            <p className="text-sm text-[#64748B] leading-relaxed max-w-xs">
+            <p className="text-sm text-[#8B8794] leading-relaxed max-w-xs">
               Plateforme d’audit de conformité et de sécurité.
             </p>
           </div>
 
           {/* Ressources */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#64748B] mb-4">Ressources</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#8B8794] mb-4">Ressources</p>
             <ul className="space-y-2.5">
               <li>
-                <NavLink to="/about" className="text-sm text-[#94A3B8] hover:text-[#A78BFA] transition-colors">
+                <NavLink to="/about" className="text-sm text-[#6B7280] hover:text-[#A78BFA] transition-colors">
                   À propos
                 </NavLink>
               </li>
@@ -32,7 +32,7 @@ export function Footer() {
                   href="https://www.open-scap.org/resources/documentation/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-[#94A3B8] hover:text-[#A78BFA] transition-colors"
+                  className="text-sm text-[#6B7280] hover:text-[#A78BFA] transition-colors"
                 >
                   Documentation OpenSCAP
                 </a>
@@ -42,7 +42,7 @@ export function Footer() {
                   href="https://github.com/openscap/openscap"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-[#94A3B8] hover:text-[#A78BFA] transition-colors"
+                  className="text-sm text-[#6B7280] hover:text-[#A78BFA] transition-colors"
                 >
                   openscap/openscap ↗
                 </a>
@@ -52,7 +52,7 @@ export function Footer() {
                   href="https://github.com/ComplianceAsCode/content"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-[#94A3B8] hover:text-[#A78BFA] transition-colors"
+                  className="text-sm text-[#6B7280] hover:text-[#A78BFA] transition-colors"
                 >
                   ComplianceAsCode/content ↗
                 </a>
@@ -62,8 +62,8 @@ export function Footer() {
 
           {/* Contact */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#64748B] mb-4">Contact</p>
-            <p className="text-sm text-[#94A3B8] mb-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#8B8794] mb-4">Contact</p>
+            <p className="text-sm text-[#6B7280] mb-3">
               Une question, un bug, une suggestion ?
             </p>
             <a
@@ -77,14 +77,14 @@ export function Footer() {
 
         <div
           className="mt-10 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-3"
-          style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+          style={{ borderColor: 'rgba(15,23,42,0.06)' }}
         >
-          <p className="text-xs text-[#475569]">
-            Projet personnel &mdash; non affilié à Red Hat, CIS ou DISA.
+          <p className="text-xs text-[#9CA3AF]">
+            Projet personnel &mdash; non affilié à Red Hat.
           </p>
           <p
             className="text-xs"
-            style={{ color: '#475569', fontFamily: "'JetBrains Mono', monospace" }}
+            style={{ color: '#9CA3AF', fontFamily: "'JetBrains Mono', monospace" }}
           >
             Conformité et sécurité, simplement
           </p>
