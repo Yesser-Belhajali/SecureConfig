@@ -77,6 +77,14 @@ const char *get_rule_question(struct xccdf_rule *rule);
 
 
 
+// n'accepte que le jeu de caractères attendu pour un segment d'URL déjà
+// filtré par sscanf %[^/] côté http_server.c (donc jamais de '/'), en repli
+// défensif si ces fonctions sont un jour appelées depuis un autre point
+// d'entrée. Bloque aussi toute séquence ".." qui permettrait de sortir du
+// dossier data/ via les snprintf de construction de chemin.
+bool is_valid_id_component(const char *s);
+
+
 // charge le benchmark XCCDF depuis un datastream SCAP (.xml). Utilisée par
 // plusieurs modules (scap_service.c en interne, remediate.c pour sa propre
 // résolution de profil) — rendue publique plutôt que dupliquée, contrairement

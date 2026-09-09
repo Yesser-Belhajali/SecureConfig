@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <cjson/cJSON.h>
 #include <xccdf_session.h>
 #include <xccdf_policy.h>
@@ -10,6 +11,8 @@
 #include <oscap_error.h>
 #include "remediate.h"
 #include "scap_service.h"
+
+
 
 // ---------------------------------------------------------------------
 // La file : identique à scan_context_push, adaptée au type remediate_context
@@ -62,10 +65,13 @@ static void remediate_context_push(struct remediate_context *ctx, char *json) {
 
 static void remediate_context_reserve(struct remediate_context *ctx, int capacity) {
     if (capacity <= 0) return;
-    char **tmp = malloc(capacity * sizeof(char *));
+    char **tmp = calloc((size_t)capacity, sizeof(char *));
     if (tmp == NULL) return;
+
+    pthread_mutex_lock(&ctx->mutex);   // point 1 : verrou manquant, ajouté
     ctx->items = tmp;
     ctx->capacity = capacity;
+    pthread_mutex_unlock(&ctx->mutex);
 }
 
 // ---------------------------------------------------------------------
@@ -441,7 +447,10 @@ static void *producer_main(void *arg) {
         xccdf_session_add_rule(session, ctx->rule_ids[i]);
     }
 
-    remediate_context_reserve(ctx, ctx->rule_count);
+    // *2 : chaque règle peut produire jusqu'à deux events (FAIL pendant
+    // evaluate(), puis FIXED/ERROR pendant remediate()) — évite les realloc
+    // en cours de remédiation pour le cas le plus fréquent
+    remediate_context_reserve(ctx, ctx->rule_count * 2);
 
     if (xccdf_session_load_cpe(session) != 0) {
         goto fail;
@@ -517,8 +526,27 @@ struct remediate_context *remediate_context_new(const char *benchmark_id, const 
                                                    const char **rule_ids, int rule_count) {
     if (rule_count <= 0) return NULL;
 
+    if (!is_valid_id_component(benchmark_id) || !is_valid_id_component(profile_id)) {
+        return NULL;
+    }
+
+    // point 4 : rejette explicitement toute entrée NULL, plutôt que de la
+    // laisser atteindre xccdf_session_add_rule(session, NULL) sans garantie
+    // de comportement documentée
+    for (int i = 0; i < rule_count; i++) {
+        if (rule_ids[i] == NULL) {
+            return NULL;
+        }
+    }
+
     struct remediate_context *ctx = calloc(1, sizeof(struct remediate_context));
     if (ctx == NULL) return NULL;
+
+    // point 6 : rejette plutôt que tronquer silencieusement
+    if (strlen(benchmark_id) >= sizeof(ctx->benchmark_id) || strlen(profile_id) >= sizeof(ctx->profile_id)) {
+        free(ctx);
+        return NULL;
+    }
 
     if (pthread_mutex_init(&ctx->mutex, NULL) != 0) {
         free(ctx);
@@ -533,9 +561,8 @@ struct remediate_context *remediate_context_new(const char *benchmark_id, const 
     }
 
     for (int i = 0; i < rule_count; i++) {
-        dup_ids[i] = rule_ids[i] ? strdup(rule_ids[i]) : NULL;
-        if (rule_ids[i] != NULL && dup_ids[i] == NULL) {
-            // échec d'allocation en cours de copie : nettoyage de ce qui a déjà été dupliqué
+        dup_ids[i] = strdup(rule_ids[i]); // non-NULL garanti par le check ci-dessus
+        if (dup_ids[i] == NULL) {
             for (int j = 0; j < i; j++) free(dup_ids[j]);
             free(dup_ids);
             pthread_mutex_destroy(&ctx->mutex);
@@ -611,7 +638,9 @@ ssize_t remediate_reader_callback(void *cls, uint64_t pos, char *buf, size_t max
                 pthread_mutex_unlock(&ctx->mutex);
                 return MHD_CONTENT_READER_END_WITH_ERROR;
             }
-            size_t to_copy = ((size_t)n < max) ? (size_t)n : max;
+            size_t written = strlen(done_msg); // correct même si snprintf a tronqué,
+                                                // contrairement à `n` qui peut dépasser sizeof(done_msg)
+            size_t to_copy = (written < max) ? written : max;
             memcpy(buf, done_msg, to_copy);
             ctx->state = REMEDIATE_DONE_SENT;
             pthread_mutex_unlock(&ctx->mutex);
@@ -638,6 +667,10 @@ int validate_remediation_request(const char *benchmark_id, const char *profile_i
                                    char *out_invalid_id, size_t out_invalid_id_size){
 
     if(benchmark_id==NULL || profile_id==NULL || rule_ids==NULL || rule_count<=0){
+        return -1;
+    }
+
+    if(!is_valid_id_component(benchmark_id) || !is_valid_id_component(profile_id)){
         return -1;
     }
 

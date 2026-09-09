@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <cjson/cJSON.h>
 #include <xccdf_session.h>
 #include <xccdf_policy.h>
@@ -9,6 +10,8 @@
 #include <oscap_source.h>
 #include "scan.h"
 #include "scap_service.h"
+
+
 
 // ---------------------------------------------------------------------
 // La file : ajout d'un event, sous mutex, avec croissance dynamique
@@ -66,10 +69,13 @@ static void scan_context_push(struct scan_context *ctx, char *json) {
 
 static void scan_context_reserve(struct scan_context *ctx, int capacity) {
     if (capacity <= 0) return;
-    char **tmp = malloc(capacity * sizeof(char *));
+    char **tmp = calloc((size_t)capacity, sizeof(char *));
     if (tmp == NULL) return;
+
+    pthread_mutex_lock(&ctx->mutex);
     ctx->items = tmp;
     ctx->capacity = capacity;
+    pthread_mutex_unlock(&ctx->mutex);
 }
 
 // ---------------------------------------------------------------------
@@ -504,8 +510,21 @@ fail:
 // ---------------------------------------------------------------------
 
 struct scan_context *scan_context_new(const char *benchmark_id, const char *profile_id) {
+    if (!is_valid_id_component(benchmark_id) || !is_valid_id_component(profile_id)) {
+        return NULL;
+    }
+
     struct scan_context *ctx = calloc(1, sizeof(struct scan_context));
     if (ctx == NULL) return NULL;
+
+    // rejette plutôt que tronquer silencieusement (point 6 de l'audit) — un
+    // ID plus long que le buffer ne doit jamais faire scanner un profil
+    // différent de celui réellement demandé, sans le signaler
+    if (strlen(benchmark_id) >= sizeof(ctx->benchmark_id) ||
+        strlen(profile_id) >= sizeof(ctx->profile_id)) {
+        free(ctx);
+        return NULL;
+    }
 
     if (pthread_mutex_init(&ctx->mutex, NULL) != 0) {
         free(ctx);
@@ -583,7 +602,9 @@ ssize_t scan_reader_callback(void *cls, uint64_t pos, char *buf, size_t max) {
                 pthread_mutex_unlock(&ctx->mutex);
                 return MHD_CONTENT_READER_END_WITH_ERROR;
             }
-            size_t to_copy = ((size_t)n < max) ? (size_t)n : max;
+            size_t written = strlen(done_msg); // correct même si snprintf a tronqué,
+                                                // contrairement à `n` qui peut dépasser sizeof(done_msg)
+            size_t to_copy = (written < max) ? written : max;
             memcpy(buf, done_msg, to_copy);
             ctx->state = SCAN_DONE_SENT;
             pthread_mutex_unlock(&ctx->mutex);

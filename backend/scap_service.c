@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <ctype.h>
 #include <xccdf_session.h>
 #include <xccdf_policy.h>
 #include <xccdf_benchmark.h>
@@ -10,6 +11,18 @@
 #include <oscap_source.h>
 #include "scap_service.h"
 
+
+
+bool is_valid_id_component(const char *s) {
+    if (s == NULL || s[0] == '\0') return false;
+    for (const char *p = s; *p != '\0'; p++) {
+        if (!(isalnum((unsigned char)*p) || *p == '.' || *p == '_' || *p == '-')) {
+            return false;
+        }
+    }
+    if (strstr(s, "..") != NULL) return false;
+    return true;
+}
 
 
 const char *get_profile_title(struct xccdf_profile *profile) {
@@ -231,6 +244,10 @@ void free_profiles_for_distro(struct profile_list *profiles, int profiles_count,
 int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, int *out_profiles_count,struct profile_list **out_tailoring_profiles, int *out_tailoring_count){
 
     if(out_profiles==NULL || out_profiles_count==NULL || out_tailoring_profiles==NULL || out_tailoring_count==NULL){
+        return -1;
+    }
+
+    if(!is_valid_id_component(id)){
         return -1;
     }
 
@@ -822,6 +839,10 @@ static int resolve_profile_context(const char *benchmark_id, const char *profile
 
     memset(ctx, 0, sizeof(*ctx));
 
+    if(!is_valid_id_component(benchmark_id) || !is_valid_id_component(profile_id)){
+        return -1;
+    }
+
     char ds_path[256], tailoring_path_buf[256];
     int n1 = snprintf(ds_path, sizeof(ds_path), "../data/%s/ssg-%s-ds.xml", benchmark_id, benchmark_id);
     if (n1 < 0 || (size_t)n1 >= sizeof(ds_path)) {
@@ -886,7 +907,11 @@ static int resolve_profile_context(const char *benchmark_id, const char *profile
     }
 
     if (tailoring != NULL) {
-        xccdf_policy_model_set_tailoring(policy_model, tailoring);
+        if (!xccdf_policy_model_set_tailoring(policy_model, tailoring)) {
+            xccdf_policy_model_free(policy_model);
+            xccdf_tailoring_free(tailoring);
+            return -1;
+        }
     }
 
     ctx->benchmark = benchmark;
@@ -1131,6 +1156,10 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
                              char *out_invalid_id, size_t out_invalid_id_size){
 
     if(benchmark_id==NULL || name==NULL || out_new_id==NULL){
+        return -1;
+    }
+
+    if(!is_valid_id_component(benchmark_id)){
         return -1;
     }
 
@@ -1409,6 +1438,10 @@ int delete_tailoring_profile(const char *benchmark_id, const char *profile_id){
         return -1;
     }
 
+    if(!is_valid_id_component(benchmark_id) || !is_valid_id_component(profile_id)){
+        return -1;
+    }
+
     char ds_path[256], tailoring_path[256];
     int n1=snprintf(ds_path,sizeof(ds_path),"../data/%s/ssg-%s-ds.xml",benchmark_id,benchmark_id);
     int n2=snprintf(tailoring_path,sizeof(tailoring_path),"../data/%s/ssg-%s-tailoring.xml",benchmark_id,benchmark_id);
@@ -1522,6 +1555,10 @@ int update_tailoring_profile(const char *benchmark_id, const char *profile_id,
                               char *out_invalid_id, size_t out_invalid_id_size){
 
     if(benchmark_id==NULL || profile_id==NULL){
+        return -1;
+    }
+
+    if(!is_valid_id_component(benchmark_id) || !is_valid_id_component(profile_id)){
         return -1;
     }
 
