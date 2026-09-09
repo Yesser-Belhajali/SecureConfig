@@ -2,6 +2,7 @@
 #define SCAP_SERVICE_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 
 
@@ -74,6 +75,24 @@ const char *get_rule_title(struct xccdf_rule *rule);
 const char *get_rule_question(struct xccdf_rule *rule);
 
 
+
+
+// charge le benchmark XCCDF depuis un datastream SCAP (.xml). Utilisée par
+// plusieurs modules (scap_service.c en interne, remediate.c pour sa propre
+// résolution de profil) — rendue publique plutôt que dupliquée, contrairement
+// aux petits helpers de formatage comme report_invalid_id
+int load_benchmark_from_ds(const char *ds_path, struct xccdf_benchmark **out_benchmark);
+
+
+// vérifie que chaque rule_ids[i] existe dans benchmark ET que c'est bien une
+// XCCDF_RULE (pas un groupe, un profil, ou un idref qui ne correspond à rien).
+// Retourne l'index du premier ID invalide, ou -1 si tous sont valides.
+int find_invalid_rule_id(struct xccdf_benchmark *benchmark, const char **rule_ids, int count);
+
+// copie l'ID invalide (s'il existe) dans out_invalid_id, en tronquant proprement.
+void report_invalid_id(const char *invalid, char *out_invalid_id, size_t out_invalid_id_size);
+
+
 int list_profiles_for_distro(const char *id,struct profile_list **out_profiles, int *out_profiles_count,struct profile_list **out_tailoring_profiles, int *out_tailoring_count);
 void free_profile_list(struct profile_list *profiles, int count);
 void free_profiles_for_distro(struct profile_list *profiles, int profiles_count,struct profile_list *tailoring_profiles, int tailoring_count);
@@ -92,12 +111,16 @@ int profile_all_rules(const char *benchmark_id, const char *profile_id, struct r
 // -4 = profil from-scratch sans aucune règle ajoutée (check rapide) ;
 // -5 = profil résolu vide après héritage (check complet) ;
 // -6 = extends un profil de base sans aucun added/removed -> duplication
-// exacte, refusée pour l'instant
+// exacte, refusée pour l'instant ;
+// -8 = un ID dans added_ids/removed_ids n'existe pas dans le benchmark (ou
+// n'est pas une XCCDF_RULE) — out_invalid_id est rempli avec cet ID dans ce
+// cas uniquement, sinon laissé inchangé
 int create_tailoring_profile(const char *benchmark_id, const char *name, const char *description,
-                              const char *base_profile_id, // NULL = from-scratch
-                              const char **added_ids, int added_count,
-                              const char **removed_ids, int removed_count,
-                              char *out_new_id, size_t out_id_size);
+                             const char *base_profile_id ,
+                             const char **added_ids, int added_count,
+                             const char **removed_ids, int removed_count,
+                             char *out_new_id, size_t out_id_size,
+                             char *out_invalid_id, size_t out_invalid_id_size);
 
 
 
@@ -110,10 +133,19 @@ int delete_tailoring_profile(const char *benchmark_id, const char *profile_id);
 
 // -1 = erreur générique ; -2 = pas de fichier tailoring ; -3 = profil introuvable ;
 // -5 = le profil édité deviendrait vide ; -6 = un autre profil du tailoring
-// deviendrait vide ; -7 = aucune modification demandée (added et removed vides)
+// deviendrait vide ; -7 = aucune modification demandée (added et removed vides) ;
+// -8 = un ID dans added_ids/removed_ids n'existe pas dans le benchmark —
+// out_invalid_id est rempli avec cet ID dans ce cas uniquement
 int update_tailoring_profile(const char *benchmark_id, const char *profile_id,
                               const char **added_ids, int added_count,
-                              const char **removed_ids, int removed_count);
+                              const char **removed_ids, int removed_count,
+                              char *out_invalid_id, size_t out_invalid_id_size);
+
+
+
+
+
+
 
 
 #endif

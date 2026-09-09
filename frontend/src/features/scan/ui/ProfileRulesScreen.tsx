@@ -6,6 +6,7 @@ import { saveProfileSelection, updateProfile } from "../model/api";
 import type { Rule } from "../model/types";
 import RuleRow from "./RuleRow";
 import RuleDetailPanel from "./RuleDetailPanel";
+import { useToasts, ToastContainer } from "../../../components/Toast";
 import "./rule-panel.css";
 
 interface ProfileRulesScreenProps {
@@ -16,6 +17,7 @@ interface ProfileRulesScreenProps {
 export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toasts, pushToast, dismissToast } = useToasts();
 
   const isViewOnly = mode.kind === "view";
   const profileId = mode.profileId;
@@ -43,12 +45,10 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
   const [profileName, setProfileName] = useState("");
   const [profileDescription, setProfileDescription] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState("all");
   const [ruleSearch, setRuleSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
 
   if (loading) {
     return <div className="rules-loading" role="status" aria-label="Chargement des règles"><span /></div>;
@@ -70,7 +70,6 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
 
   const handleSave = async () => {
     setSaving(true);
-    setSaveError(null);
     try {
       const { added, removed } = diff();
       const result = await saveProfileSelection(benchmarkId, {
@@ -96,7 +95,7 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
       });
       void result;
     } catch (err) {
-      setSaveError((err as Error).message);
+      pushToast((err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -105,7 +104,6 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
   const handleUpdate = async () => {
     if (!profileId) return;
     setUpdating(true);
-    setUpdateError(null);
     try {
       const { added, removed } = diff();
       await updateProfile(benchmarkId, profileId, { added, removed });
@@ -117,7 +115,7 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
         },
       });
     } catch (err) {
-      setUpdateError((err as Error).message);
+      pushToast((err as Error).message);
     } finally {
       setUpdating(false);
     }
@@ -141,6 +139,8 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
 
   return (
     <>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       <button
         type="button"
         className="rules-back-button"
@@ -281,7 +281,6 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
                       onChange={(e) => setProfileDescription(e.target.value)}
                       disabled={saving}
                     />
-                    {saveError && <p className="rules-save-error">Erreur : {saveError}</p>}
                   </div>
                 )}
 
@@ -328,10 +327,6 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
                     </div>
                   )}
                 </div>
-
-                {updateError && (
-                  <p className="rules-save-error" style={{ padding: "0 1.15rem 1rem" }}>Erreur : {updateError}</p>
-                )}
               </div>
             )}
           </div>

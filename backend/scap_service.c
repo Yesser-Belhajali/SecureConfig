@@ -122,7 +122,7 @@ const char *get_rule_severity(struct xccdf_rule *rule){
     return rule_severity;
 }
 
-static int load_benchmark_from_ds(const char *ds_path, struct xccdf_benchmark **out_benchmark){
+int load_benchmark_from_ds(const char *ds_path, struct xccdf_benchmark **out_benchmark){
 
     *out_benchmark = NULL;
 
@@ -811,6 +811,11 @@ int list_rules_for_ds(const char *ds_path,struct rule_list **out_rules){
 // tailoring_path_override : si non-NULL, utilisé à la place du chemin
 // standard (../data/<id>/ssg-<id>-tailoring.xml) — sert à valider un
 // tailoring encore temporaire (pas encore publié) avant de le committer.
+//
+// Ordre de résolution aligné sur xccdf_policy_model_create_policy_by_id
+// (openscap, policy.c) : "Tailoring profiles take precedence over Benchmark
+// profiles." — donc le tailoring est vérifié EN PREMIER, le natif seulement
+// en repli si le profil n'y est pas trouvé.
 static int resolve_profile_context(const char *benchmark_id, const char *profile_id,
                                      const char *tailoring_path_override,
                                      struct resolved_profile_context *ctx) {
@@ -837,13 +842,13 @@ static int resolve_profile_context(const char *benchmark_id, const char *profile
         return -1;
     }
 
-    struct xccdf_profile *profile = xccdf_benchmark_get_profile_by_id(benchmark, profile_id);
-
     struct xccdf_tailoring *tailoring = NULL;
-    struct oscap_source *tailoring_source = NULL;
+    struct xccdf_profile *profile = NULL;
 
-    if (profile == NULL && access(tailoring_path, F_OK) == 0) {
-        tailoring_source = oscap_source_new_from_file(tailoring_path);
+    // étape 1 : le tailoring, s'il existe, est vérifié en premier — le
+    // profil qu'il contient masque ("shadow") un profil natif de même ID
+    if (access(tailoring_path, F_OK) == 0) {
+        struct oscap_source *tailoring_source = oscap_source_new_from_file(tailoring_path);
         if (tailoring_source == NULL) {
             xccdf_benchmark_free(benchmark);
             return -1;
@@ -859,6 +864,12 @@ static int resolve_profile_context(const char *benchmark_id, const char *profile
         oscap_source_free(tailoring_source);
 
         profile = xccdf_tailoring_get_profile_by_id(tailoring, profile_id);
+    }
+
+    // étape 2 : repli sur le benchmark natif, seulement si pas trouvé dans
+    // le tailoring (ou si aucun fichier tailoring n'existe pour ce benchmark)
+    if (profile == NULL) {
+        profile = xccdf_benchmark_get_profile_by_id(benchmark, profile_id);
     }
 
     if (profile == NULL) {
@@ -881,9 +892,9 @@ static int resolve_profile_context(const char *benchmark_id, const char *profile
     ctx->benchmark = benchmark;
     ctx->policy_model = policy_model;
     ctx->profile = profile;
+    
     return 0;
 }
-
 
 static void free_profile_context(struct resolved_profile_context *ctx) {
     if (ctx->policy_model != NULL) {
@@ -1079,19 +1090,53 @@ static int generate_unique_id(const char *name, struct profile_list *native, int
 }
 
 
+// copie l'ID invalide (s'il existe) dans out_invalid_id, en tronquant proprement.
+// Centralise la logique répétée dans create_tailoring_profile et
+// update_tailoring_profile pour rapporter le code -8.
+void report_invalid_id(const char *invalid, char *out_invalid_id, size_t out_invalid_id_size){
+    if(out_invalid_id == NULL || out_invalid_id_size == 0){
+        return;
+    }
+    if(invalid != NULL){
+        strncpy(out_invalid_id, invalid, out_invalid_id_size - 1);
+        out_invalid_id[out_invalid_id_size - 1] = '\0';
+    } else {
+        out_invalid_id[0] = '\0';
+    }
+}
+
+
+// vérifie que chaque rule_ids[i] existe dans benchmark ET que c'est bien une
+// XCCDF_RULE (pas un groupe, un profil, ou un idref qui ne correspond à rien).
+// Retourne l'index du premier ID invalide, ou -1 si tous sont valides.
+int find_invalid_rule_id(struct xccdf_benchmark *benchmark, const char **rule_ids, int count){
+    for(int i=0; i<count; i++){
+        if(rule_ids[i] == NULL){
+            return i;
+        }
+        struct xccdf_item *item = xccdf_benchmark_get_item(benchmark, rule_ids[i]);
+        if(item == NULL || xccdf_item_get_type(item) != XCCDF_RULE){
+            return i;
+        }
+    }
+    return -1;
+}
+
+
 int create_tailoring_profile(const char *benchmark_id, const char *name, const char *description,
-                              const char *base_profile_id, // NULL = from-scratch
-                              const char **added_ids, int added_count,
-                              const char **removed_ids, int removed_count,
-                              char *out_new_id, size_t out_id_size){
+                             const char *base_profile_id , // NULL = from-scratch
+                             const char **added_ids, int added_count,
+                             const char **removed_ids, int removed_count,
+                             char *out_new_id, size_t out_id_size,
+                             char *out_invalid_id, size_t out_invalid_id_size){
 
     if(benchmark_id==NULL || name==NULL || out_new_id==NULL){
         return -1;
     }
 
     if(base_profile_id==NULL && added_count==0){
-    return -4; // profil "from scratch" sans aucune règle sélectionnée
-}
+        return -4; // profil "from scratch" sans aucune règle sélectionnée
+    }
 
     if(base_profile_id != NULL && added_count==0 && removed_count==0){
         return -6; // aucun changement par rapport au profil de base -> duplication
@@ -1134,6 +1179,20 @@ int create_tailoring_profile(const char *benchmark_id, const char *name, const c
     struct xccdf_benchmark *benchmark=NULL;
     if(load_benchmark_from_ds(ds_path,&benchmark)!=0){
         return -1;
+    }
+
+    // 2bis. validation AVANT toute construction — sans ça, xccdf_select_set_item
+    // accepterait silencieusement un idref inexistant (cf. étape 9 existante :
+    // le profil se créerait quand même, avec moins de règles effectives que
+    // ce que l'utilisateur croit avoir sélectionné)
+    int bad_added = find_invalid_rule_id(benchmark, added_ids, added_count);
+    int bad_removed = (bad_added < 0) ? find_invalid_rule_id(benchmark, removed_ids, removed_count) : -1;
+
+    if(bad_added >= 0 || bad_removed >= 0){
+        const char *invalid = (bad_added >= 0) ? added_ids[bad_added] : removed_ids[bad_removed];
+        report_invalid_id(invalid, out_invalid_id, out_invalid_id_size);
+        xccdf_benchmark_free(benchmark);
+        return -8;
     }
 
     // 3. charge le tailoring existant, ou en crée un nouveau
@@ -1459,7 +1518,8 @@ static bool apply_select(struct xccdf_profile *profile, const char *rule_id, boo
 // — pas besoin d'exporter-puis-rollback comme pour create.
 int update_tailoring_profile(const char *benchmark_id, const char *profile_id,
                               const char **added_ids, int added_count,
-                              const char **removed_ids, int removed_count){
+                              const char **removed_ids, int removed_count,
+                              char *out_invalid_id, size_t out_invalid_id_size){
 
     if(benchmark_id==NULL || profile_id==NULL){
         return -1;
@@ -1504,6 +1564,18 @@ int update_tailoring_profile(const char *benchmark_id, const char *profile_id,
         xccdf_tailoring_free(tailoring);
         xccdf_benchmark_free(benchmark);
         return -3; // profil introuvable dans le tailoring
+    }
+
+    // validation AVANT toute mutation — même logique que create_tailoring_profile
+    int bad_added = find_invalid_rule_id(benchmark, added_ids, added_count);
+    int bad_removed = (bad_added < 0) ? find_invalid_rule_id(benchmark, removed_ids, removed_count) : -1;
+
+    if(bad_added >= 0 || bad_removed >= 0){
+        const char *invalid = (bad_added >= 0) ? added_ids[bad_added] : removed_ids[bad_removed];
+        report_invalid_id(invalid, out_invalid_id, out_invalid_id_size);
+        xccdf_tailoring_free(tailoring);
+        xccdf_benchmark_free(benchmark);
+        return -8;
     }
 
     // applique le diff : mutation en place, jamais de duplication

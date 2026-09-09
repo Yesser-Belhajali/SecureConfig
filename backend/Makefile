@@ -55,7 +55,7 @@ TEST_SRCS = ./Exploration/session_scan.c $(COMMON_SRCS)
 # ============================================================
 
 SERVER_TARGET = ./build/http_server
-SERVER_SRCS = http_server.c scan.c $(COMMON_SRCS)
+SERVER_SRCS = http_server.c scan.c remediate.c $(COMMON_SRCS)
 
 
 # ============================================================
@@ -63,7 +63,7 @@ SERVER_SRCS = http_server.c scan.c $(COMMON_SRCS)
 # ============================================================
 
 MEMTEST_TARGET = ./build/http_server_memtest
-MEMTEST_SRCS = http_server.c scan.c $(COMMON_SRCS)
+MEMTEST_SRCS = http_server.c scan.c remediate.c $(COMMON_SRCS)
 
 
 # ============================================================

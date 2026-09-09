@@ -8,6 +8,7 @@
 #include "scap_service.h"
 #include "json_utils.h"
 #include "scan.h"
+#include "remediate.h"
 
 
 
@@ -45,6 +46,20 @@ static char *build_created_response(const char *new_id) {
     cJSON *resp = cJSON_CreateObject();
     if (resp == NULL) return NULL;
     cJSON_AddStringToObject(resp, "id", new_id);
+    char *json_str = cJSON_Print(resp);
+    cJSON_Delete(resp);
+    return json_str;
+}
+
+
+// construit le corps JSON pour un ID de règle invalide (-8) : le message
+// inclut l'ID fautif, indispensable pour que le frontend sache lequel des
+// checkboxes cochées ne correspond à aucune règle du benchmark
+static char *build_invalid_id_response(const char *invalid_id) {
+    cJSON *resp = cJSON_CreateObject();
+    if (resp == NULL) return NULL;
+    cJSON_AddStringToObject(resp, "error", "invalid rule id");
+    cJSON_AddStringToObject(resp, "invalid_id", invalid_id != NULL ? invalid_id : "");
     char *json_str = cJSON_Print(resp);
     cJSON_Delete(resp);
     return json_str;
@@ -135,6 +150,19 @@ static int extract_single_profile_request(const char *url, char *out_benchmark_i
     return 1;
 }
 
+static int extract_remediate_request(const char *url, char *out_benchmark_id, size_t bid_size,
+                                       char *out_profile_id, size_t pid_size) {
+    int pos = 0;
+    if (sscanf(url, "/benchmarks/%63[^/]/profiles/%127[^/]/remediate%n",
+               out_benchmark_id, out_profile_id, &pos) != 2) {
+        return 0;
+    }
+    if (url[pos] != '\0') {
+        return 0;
+    }
+    return 1;
+}
+
 
 static void handle_create_profile(const char *benchmark_id, const char *body,
                                     const char **response_text, int *status_code,
@@ -192,9 +220,11 @@ static void handle_create_profile(const char *benchmark_id, const char *body,
     }
 
     char new_id[256];
+    char invalid_id[256];
     int ret = create_tailoring_profile(benchmark_id, name, description, base_profile_id,
                                         added_ids, added_count, removed_ids, removed_count,
-                                        new_id, sizeof(new_id));
+                                        new_id, sizeof(new_id),
+                                        invalid_id, sizeof(invalid_id));
 
     free(added_ids);
     free(removed_ids);
@@ -230,6 +260,17 @@ static void handle_create_profile(const char *benchmark_id, const char *body,
         *response_text = "{\"error\":\"Aucune règle ajoutée ou retirée par rapport au profil de base — dupliquer un profil à l'identique n'est pas encore pris en charge.\"}";
         *status_code = MHD_HTTP_BAD_REQUEST;
     }
+    else if (ret == -8) {
+        *response_text = build_invalid_id_response(invalid_id);
+        if (*response_text == NULL) {
+            *response_text = "{\"error\":\"invalid rule id\"}";
+            *status_code = MHD_HTTP_BAD_REQUEST;
+        }
+        else {
+            *status_code = MHD_HTTP_BAD_REQUEST;
+            *mem_mode = MHD_RESPMEM_MUST_FREE;
+        }
+    }
     else {
         *response_text = "{\"error\":\"failed to create profile\"}";
         *status_code = MHD_HTTP_INTERNAL_SERVER_ERROR;
@@ -241,6 +282,7 @@ static void handle_create_profile(const char *benchmark_id, const char *body,
 static void handle_update_profile(const char *benchmark_id, const char *profile_id, const char *body,
                                     const char **response_text, int *status_code,
                                     enum MHD_ResponseMemoryMode *mem_mode) {
+
     cJSON *json = cJSON_Parse(body != NULL ? body : "");
     if (json == NULL) {
         *response_text = "{\"error\":\"invalid json\"}";
@@ -286,7 +328,10 @@ static void handle_update_profile(const char *benchmark_id, const char *profile_
         return;
     }
 
-    int ret = update_tailoring_profile(benchmark_id, profile_id, added_ids, added_count, removed_ids, removed_count);
+    char invalid_id[256];
+    int ret = update_tailoring_profile(benchmark_id, profile_id, added_ids, added_count,
+                                        removed_ids, removed_count,
+                                        invalid_id, sizeof(invalid_id));
 
     free(added_ids);
     free(removed_ids);
@@ -315,6 +360,17 @@ static void handle_update_profile(const char *benchmark_id, const char *profile_
     else if (ret == -7) {
         *response_text = "{\"error\":\"Aucune modification à enregistrer.\"}";
         *status_code = MHD_HTTP_BAD_REQUEST;
+    }
+    else if (ret == -8) {
+        *response_text = build_invalid_id_response(invalid_id);
+        if (*response_text == NULL) {
+            *response_text = "{\"error\":\"invalid rule id\"}";
+            *status_code = MHD_HTTP_BAD_REQUEST;
+        }
+        else {
+            *status_code = MHD_HTTP_BAD_REQUEST;
+            *mem_mode = MHD_RESPMEM_MUST_FREE;
+        }
     }
     else {
         *response_text = "{\"error\":\"failed to update profile\"}";
@@ -397,6 +453,124 @@ static enum MHD_Result handle_request(void *cls,
 
         struct MHD_Response *sse_response = MHD_create_response_from_callback(
             MHD_SIZE_UNKNOWN, 1024, &scan_reader_callback, ctx, &consumer_finish);
+        MHD_add_response_header(sse_response, "Content-Type", "text/event-stream");
+        MHD_add_response_header(sse_response, "Cache-Control", "no-cache");
+        MHD_add_response_header(sse_response, "Access-Control-Allow-Origin", "*");
+        enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, sse_response);
+        MHD_destroy_response(sse_response);
+        return ret;
+    }
+
+    if (strcmp(method, "POST") == 0 && extract_remediate_request(url, benchmark_id, sizeof(benchmark_id), profile_id, sizeof(profile_id))) {
+        cJSON *json = cJSON_Parse(con_info->body != NULL ? con_info->body : "");
+        if (json == NULL) {
+            const char *msg = "{\"error\":\"invalid json\"}";
+            struct MHD_Response *err = MHD_create_response_from_buffer(strlen(msg), (void *)msg, MHD_RESPMEM_PERSISTENT);
+            MHD_add_response_header(err, "Content-Type", "application/json");
+            MHD_add_response_header(err, "Access-Control-Allow-Origin", "*");
+            enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, err);
+            MHD_destroy_response(err);
+            return ret;
+        }
+
+        cJSON *rule_ids_item = cJSON_GetObjectItemCaseSensitive(json, "rule_ids");
+        if (!cJSON_IsArray(rule_ids_item) || cJSON_GetArraySize(rule_ids_item) == 0) {
+            cJSON_Delete(json);
+            const char *msg = "{\"error\":\"rule_ids must be a non-empty array of strings\"}";
+            struct MHD_Response *err = MHD_create_response_from_buffer(strlen(msg), (void *)msg, MHD_RESPMEM_PERSISTENT);
+            MHD_add_response_header(err, "Content-Type", "application/json");
+            MHD_add_response_header(err, "Access-Control-Allow-Origin", "*");
+            enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, err);
+            MHD_destroy_response(err);
+            return ret;
+        }
+
+        int rule_count = cJSON_GetArraySize(rule_ids_item);
+        const char **rule_ids = malloc(rule_count * sizeof(char *));
+        bool arrays_ok = (rule_ids != NULL);
+
+        for (int i = 0; arrays_ok && i < rule_count; i++) {
+            cJSON *item = cJSON_GetArrayItem(rule_ids_item, i);
+            if (!cJSON_IsString(item)) { arrays_ok = false; break; }
+            rule_ids[i] = item->valuestring;
+        }
+
+        if (!arrays_ok) {
+            free(rule_ids);
+            cJSON_Delete(json);
+            const char *msg = "{\"error\":\"rule_ids must be an array of strings\"}";
+            struct MHD_Response *err = MHD_create_response_from_buffer(strlen(msg), (void *)msg, MHD_RESPMEM_PERSISTENT);
+            MHD_add_response_header(err, "Content-Type", "application/json");
+            MHD_add_response_header(err, "Access-Control-Allow-Origin", "*");
+            enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_BAD_REQUEST, err);
+            MHD_destroy_response(err);
+            return ret;
+        }
+
+        char invalid_id[256];
+        int vret = validate_remediation_request(benchmark_id, profile_id, rule_ids, rule_count, invalid_id, sizeof(invalid_id));
+
+        if (vret != 0) {
+            const char *err_text;
+            int err_status;
+            char *heap_text = NULL;
+
+            if (vret == -3) {
+                err_text = "{\"error\":\"profile not found\"}";
+                err_status = MHD_HTTP_NOT_FOUND;
+            }
+            else if (vret == -8) {
+                heap_text = build_invalid_id_response(invalid_id);
+                err_text = heap_text != NULL ? heap_text : "{\"error\":\"invalid rule id\"}";
+                err_status = MHD_HTTP_BAD_REQUEST;
+            }
+            else if (vret == -9) {
+                // réutilise build_invalid_id_response : même forme de payload
+                // (error + invalid_id), le frontend distingue déjà par ce champ
+                heap_text = build_invalid_id_response(invalid_id);
+                err_text = heap_text != NULL ? heap_text : "{\"error\":\"rule not in profile\"}";
+                err_status = MHD_HTTP_BAD_REQUEST;
+            }
+            else {
+                err_text = "{\"error\":\"failed to validate remediation request\"}";
+                err_status = MHD_HTTP_INTERNAL_SERVER_ERROR;
+            }
+
+            struct MHD_Response *err = MHD_create_response_from_buffer(strlen(err_text), (void *)err_text,
+                heap_text != NULL ? MHD_RESPMEM_MUST_FREE : MHD_RESPMEM_PERSISTENT);
+            MHD_add_response_header(err, "Content-Type", "application/json");
+            MHD_add_response_header(err, "Access-Control-Allow-Origin", "*");
+            enum MHD_Result ret = MHD_queue_response(connection, err_status, err);
+            MHD_destroy_response(err);
+
+            free(rule_ids);
+            cJSON_Delete(json);
+            return ret;
+        }
+
+        struct remediate_context *rctx = remediate_context_new(benchmark_id, profile_id, rule_ids, rule_count);
+        free(rule_ids);      // remediate_context_new a dupliqué chaque chaîne individuellement
+        cJSON_Delete(json);  // idem — plus besoin du JSON parsé après la copie
+
+        if (rctx == NULL) {
+            struct MHD_Response *err = MHD_create_response_from_buffer(0, "", MHD_RESPMEM_PERSISTENT);
+            enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+            MHD_destroy_response(err);
+            return ret;
+        }
+
+        remediate_context_set_connection(rctx, connection);
+
+        if (!remediate_context_start(rctx)) {
+            remediate_context_abort(rctx);
+            struct MHD_Response *err = MHD_create_response_from_buffer(0, "", MHD_RESPMEM_PERSISTENT);
+            enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+            MHD_destroy_response(err);
+            return ret;
+        }
+
+        struct MHD_Response *sse_response = MHD_create_response_from_callback(
+            MHD_SIZE_UNKNOWN, 1024, &remediate_reader_callback, rctx, &remediate_consumer_finish);
         MHD_add_response_header(sse_response, "Content-Type", "text/event-stream");
         MHD_add_response_header(sse_response, "Cache-Control", "no-cache");
         MHD_add_response_header(sse_response, "Access-Control-Allow-Origin", "*");

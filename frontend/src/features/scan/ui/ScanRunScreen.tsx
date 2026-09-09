@@ -78,7 +78,7 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
     : null;
 
   return (
-    <div className="scan-page">
+    <>
       <button
         type="button"
         className="scan-back-button"
@@ -95,158 +95,160 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
         Retour aux règles
       </button>
 
-      <div className="scan-header-row">
-        <h1>Résultats</h1>
+      <div className="scan-page">
+        <div className="scan-header-row">
+          <h1>Résultats</h1>
 
-        {status === "running" && (
-          <span className="scan-status-badge is-running">
-            <span className="scan-status-dot" aria-hidden="true" />
-            Scan en cours
-          </span>
-        )}
+          {status === "running" && (
+            <span className="scan-status-badge is-running">
+              <span className="scan-status-dot" aria-hidden="true" />
+              Scan en cours
+            </span>
+          )}
 
-        {status === "done" && (
-          <span className="scan-status-badge is-done">
-            <span className="scan-status-dot" aria-hidden="true" />
-            Scan terminé
-          </span>
-        )}
+          {status === "done" && (
+            <span className="scan-status-badge is-done">
+              <span className="scan-status-dot" aria-hidden="true" />
+              Scan terminé
+            </span>
+          )}
 
-        {status === "error" && (
-          <span className="scan-status-badge is-error">
-            <span className="scan-status-dot" aria-hidden="true" />
-            Erreur
-          </span>
-        )}
-      </div>
-
-      {(status === "running" || status === "done") && evaluatedCount > 0 && (
-        <div className="scan-score-top">
-          <div className="scan-score-side is-pass">
-            <span className="scan-score-side-value">{passCount}</span>
-            <span className="scan-score-side-label">Réussies</span>
-          </div>
-
-          <div className="scan-score-center">
-            <ScanScoreCircle score={displayScore} />
-            <p className="scan-score-top-label">Score de conformité</p>
-          </div>
-
-          <div className="scan-score-side is-fail">
-            <span className="scan-score-side-value">{failCount}</span>
-            <span className="scan-score-side-label">Échouées</span>
-          </div>
-        </div>
-      )}
-
-      <section className="scan-controls" aria-label="Progression et filtres du scan">
-        <div className="scan-progress-track" aria-hidden="true">
-          <span style={{ width: `${scanProgress}%` }} />
+          {status === "error" && (
+            <span className="scan-status-badge is-error">
+              <span className="scan-status-dot" aria-hidden="true" />
+              Erreur
+            </span>
+          )}
         </div>
 
-        {status === "running" && (
-          <div className="scan-in-progress">
-            <span className="scan-in-progress-spinner" aria-hidden="true" />
+        {(status === "running" || status === "done") && evaluatedCount > 0 && (
+          <div className="scan-score-top">
+            <div className="scan-score-side is-pass">
+              <span className="scan-score-side-value">{passCount}</span>
+              <span className="scan-score-side-label">Réussies</span>
+            </div>
 
-            {inProgressTitle ? (
-              <span>
-                Test en cours : <strong>{inProgressTitle}</strong>
-              </span>
-            ) : (
-              <span>Démarrage du scan...</span>
-            )}
+            <div className="scan-score-center">
+              <ScanScoreCircle score={displayScore} />
+              <p className="scan-score-top-label">Score de conformité</p>
+            </div>
 
-            {totalRules !== null && (
-              <span className="scan-progress-count">
-                ({evaluatedCount} / {totalRules})
-              </span>
-            )}
+            <div className="scan-score-side is-fail">
+              <span className="scan-score-side-value">{failCount}</span>
+              <span className="scan-score-side-label">Échouées</span>
+            </div>
           </div>
         )}
 
-        {status === "done" && (
-          <>
-            <div className="rules-search">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+        <section className="scan-controls" aria-label="Progression et filtres du scan">
+          <div className="scan-progress-track" aria-hidden="true">
+            <span style={{ width: `${scanProgress}%` }} />
+          </div>
 
-              <input
-                type="text"
-                placeholder="Rechercher un résultat par nom..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label="Rechercher un résultat par nom"
+          {status === "running" && (
+            <div className="scan-in-progress">
+              <span className="scan-in-progress-spinner" aria-hidden="true" />
+
+              {inProgressTitle ? (
+                <span>
+                  Test en cours : <strong>{inProgressTitle}</strong>
+                </span>
+              ) : (
+                <span>Démarrage du scan...</span>
+              )}
+
+              {totalRules !== null && (
+                <span className="scan-progress-count">
+                  ({evaluatedCount} / {totalRules})
+                </span>
+              )}
+            </div>
+          )}
+
+          {status === "done" && (
+            <>
+              <div className="rules-search">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+
+                <input
+                  type="text"
+                  placeholder="Rechercher un résultat par nom..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Rechercher un résultat par nom"
+                />
+              </div>
+
+              <div className="rules-filters" role="group" aria-label="Filtrer par statut">
+                <span>Statut</span>
+                {STATUSES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={statusFilter === s ? "is-selected" : ""}
+                    onClick={() => setStatusFilter(s)}
+                  >
+                    {s === "all" ? "Tous" : s === "pass" ? "Réussi" : s === "fail" ? "Échoué" : "Autre"}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rules-filters" role="group" aria-label="Filtrer par sévérité">
+                <span>Sévérité</span>
+                {SEVERITIES.map((sev) => (
+                  <button
+                    key={sev}
+                    type="button"
+                    className={severityFilter === sev ? "is-selected" : ""}
+                    onClick={() => setSeverityFilter(sev)}
+                  >
+                    {sev === "all" ? "Toutes" : sev}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+
+        {visibleResults.length === 0 ? (
+          <p className="scan-empty">
+            {evaluatedCount === 0 && status === "running"
+              ? "En attente des premiers résultats..."
+              : "Aucun résultat ne correspond à ces filtres."}
+          </p>
+        ) : (
+          <div className="scan-result-list">
+            {visibleResults.map((r) => (
+              <ScanResultRow
+                key={r.id}
+                title={r.title}
+                status={r.status}
+                isActive={r.id === selectedRuleId}
+                onClick={() =>
+                  setSelectedRuleId((current) => (current === r.id ? null : r.id))
+                }
               />
-            </div>
-
-            <div className="rules-filters" role="group" aria-label="Filtrer par statut">
-              <span>Statut</span>
-              {STATUSES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  className={statusFilter === s ? "is-selected" : ""}
-                  onClick={() => setStatusFilter(s)}
-                >
-                  {s === "all" ? "Tous" : s === "pass" ? "Réussi" : s === "fail" ? "Échoué" : "Autre"}
-                </button>
-              ))}
-            </div>
-
-            <div className="rules-filters" role="group" aria-label="Filtrer par sévérité">
-              <span>Sévérité</span>
-              {SEVERITIES.map((sev) => (
-                <button
-                  key={sev}
-                  type="button"
-                  className={severityFilter === sev ? "is-selected" : ""}
-                  onClick={() => setSeverityFilter(sev)}
-                >
-                  {sev === "all" ? "Toutes" : sev}
-                </button>
-              ))}
-            </div>
-          </>
+            ))}
+          </div>
         )}
-      </section>
 
-      {visibleResults.length === 0 ? (
-        <p className="scan-empty">
-          {evaluatedCount === 0 && status === "running"
-            ? "En attente des premiers résultats..."
-            : "Aucun résultat ne correspond à ces filtres."}
-        </p>
-      ) : (
-        <div className="scan-result-list">
-          {visibleResults.map((r) => (
-            <ScanResultRow
-              key={r.id}
-              title={r.title}
-              status={r.status}
-              isActive={r.id === selectedRuleId}
-              onClick={() =>
-                setSelectedRuleId((current) => (current === r.id ? null : r.id))
-              }
-            />
-          ))}
-        </div>
-      )}
+        <RuleDetailPanel rule={selectedResult} onClose={() => setSelectedRuleId(null)} />
 
-      <RuleDetailPanel rule={selectedResult} onClose={() => setSelectedRuleId(null)} />
-
-      {status === "error" && <p className="scan-error-card">Une erreur est survenue pendant le scan.</p>}
-    </div>
+        {status === "error" && <p className="scan-error-card">Une erreur est survenue pendant le scan.</p>}
+      </div>
+    </>
   );
 }

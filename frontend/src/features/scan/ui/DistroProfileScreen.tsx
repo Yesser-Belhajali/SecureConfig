@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useScanFlow } from "../model/useScanFlow";
 import { distributions } from "../model/distributions";
 import type { Profile } from "../model/types";
+import { useToasts, ToastContainer } from "../../../components/Toast";
 
 export function ScanScreen() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [confirmDeleteProfile, setConfirmDeleteProfile] = useState<Profile | null>(null);
+  const { toasts, pushToast, dismissToast } = useToasts();
   const {
     screen,
     distributionId,
@@ -30,12 +32,35 @@ export function ScanScreen() {
     deleteProfile,
   } = useScanFlow();
 
+  // détecte les nouvelles erreurs de suppression (deleteErrors est une map
+  // profileId -> message) et les pousse en toast au lieu de les afficher
+  // inline sous le profil concerné
+  const prevDeleteErrorsRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    const prev = prevDeleteErrorsRef.current;
+    for (const [profileId, message] of Object.entries(deleteErrors)) {
+      if (message && prev[profileId] !== message) {
+        pushToast(message);
+      }
+    }
+    prevDeleteErrorsRef.current = deleteErrors;
+  }, [deleteErrors, pushToast]);
+
+  // même traitement pour l'erreur de chargement des profils
+  useEffect(() => {
+    if (profilesError) {
+      pushToast(profilesError);
+    }
+  }, [profilesError, pushToast]);
+
   const filteredDistributions = distributions.filter((d) =>
     d.label.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       {screen === "profile" && (
         <button
           type="button"
@@ -152,7 +177,6 @@ export function ScanScreen() {
           <p className="text-sm text-[#8B8794] mb-6">Profil appliqué à {selectedDistribution?.label} {version}.</p>
 
           {loadingProfiles && <p className="text-sm text-[#8B8794] mb-6">Chargement des profils...</p>}
-          {profilesError && <p className="text-sm text-red-400 mb-6">Erreur : {profilesError}</p>}
 
           {!loadingProfiles && !profilesError && (
             <>
@@ -202,9 +226,6 @@ export function ScanScreen() {
                             )}
                             {profile.extends && (
                               <span className="block text-xs text-[#8B8794] mt-1">Étend {profile.extends}</span>
-                            )}
-                            {deleteErrors[profile.id] && (
-                              <span className="block text-xs text-red-400 mt-1.5 leading-relaxed">{deleteErrors[profile.id]}</span>
                             )}
                           </span>
 
