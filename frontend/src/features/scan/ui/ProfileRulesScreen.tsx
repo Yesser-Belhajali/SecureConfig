@@ -86,13 +86,7 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
       setProfileDescription("");
       setFormOpen(false);
 
-      navigate("/scan", {
-        state: {
-          screen: "profile",
-          distributionId: location.state?.distributionId,
-          version: location.state?.version,
-        },
-      });
+      navigate(`/benchmarks/${benchmarkId}/profiles`);
       void result;
     } catch (err) {
       pushToast((err as Error).message);
@@ -107,13 +101,7 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
     try {
       const { added, removed } = diff();
       await updateProfile(benchmarkId, profileId, { added, removed });
-      navigate("/scan", {
-        state: {
-          screen: "profile",
-          distributionId: location.state?.distributionId,
-          version: location.state?.version,
-        },
-      });
+      navigate(`/benchmarks/${benchmarkId}/profiles`);;
     } catch (err) {
       pushToast((err as Error).message);
     } finally {
@@ -144,7 +132,7 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
       <button
         type="button"
         className="rules-back-button"
-        onClick={() => navigate("/scan", { state: { screen: "profile", distributionId: location.state?.distributionId, version: location.state?.version } })}
+        onClick={() => navigate(`/benchmarks/${benchmarkId}/profiles`)}
       >
         <span aria-hidden="true">←</span>
         Retour aux profils
@@ -243,25 +231,31 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
               </div>
             </section>
 
-            {visibleRules.length === 0 ? (
-              <p className="rules-empty">Aucune règle ne correspond à votre recherche.</p>
-            ) : (
-              <div className="rule-list">
-                {visibleRules.map((rule) => (
-                  <RuleRow
-                    key={rule.id}
-                    rule={rule}
-                    checked={selectedIds.has(rule.id)}
-                    active={selectedRule?.id === rule.id}
-                    readOnly={isViewOnly}
-                    onToggle={() => toggleRule(rule.id)}
-                    onSelect={() => setSelectedRule((current) => (current?.id === rule.id ? null : rule))}
-                  />
-                ))}
+            <section className="scan-remediation-panel" aria-label="Règles du profil">
+              <div className="scan-remediation-header">
+                <h2>{isCreate ? "Choisir les règles du nouveau profil" : isViewOnly ? "Règles du profil" : "Modifier la sélection des règles"}</h2>
               </div>
-            )}
 
-            <p>{selectedIds.size} règle(s) sélectionnée(s)</p>
+              {visibleRules.length === 0 ? (
+                <p className="rules-empty">Aucune règle ne correspond à votre recherche.</p>
+              ) : (
+                <div className="rule-list">
+                  {visibleRules.map((rule) => (
+                    <RuleRow
+                      key={rule.id}
+                      rule={rule}
+                      checked={selectedIds.has(rule.id)}
+                      active={selectedRule?.id === rule.id}
+                      readOnly={isViewOnly}
+                      onToggle={() => toggleRule(rule.id)}
+                      onSelect={() => setSelectedRule((current) => (current?.id === rule.id ? null : rule))}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <p className="rules-count-line">{selectedIds.size} règle(s) sélectionnée(s)</p>
+            </section>
 
             {!isViewOnly && hasChanges && (
               <div className={`rules-savebar ${formOpen ? "is-open" : ""}`}>

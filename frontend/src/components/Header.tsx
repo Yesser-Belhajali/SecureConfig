@@ -66,12 +66,12 @@ export function Header() {
           </span>
         </NavLink>
 
-        <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-8">
           <NavLink to="/" end className={linkClass}>Home</NavLink>
-          <NavLink to="/scan" className={linkClass}>Scan</NavLink>
+          <NavLink to="/benchmarks" className={linkClass}>Scan</NavLink>
           <NavLink to="/about" className={linkClass}>About</NavLink>
           <NavLink
-            to="/scan"
+            to="/benchmarks"
             className="text-sm font-medium px-4 py-1.5 rounded-md transition-all duration-150"
             style={{
               backgroundColor: '#8B5CF6',
@@ -95,10 +95,10 @@ export function Header() {
           style={{ borderColor: 'rgba(15,23,42,0.07)', backgroundColor: '#FFFFFF' }}
         >
           <NavLink to="/" end className={linkClass} onClick={() => setOpen(false)}>Home</NavLink>
-          <NavLink to="/scan" className={linkClass} onClick={() => setOpen(false)}>Scan</NavLink>
+          <NavLink to="/benchmarks" className={linkClass} onClick={() => setOpen(false)}>Scan</NavLink>
           <NavLink to="/about" className={linkClass} onClick={() => setOpen(false)}>About</NavLink>
           <NavLink
-            to="/scan"
+            to="/benchmarks"
             className="text-sm font-medium px-4 py-2 rounded-md text-center transition-all duration-150"
             style={{ backgroundColor: '#8B5CF6', color: '#fff' }}
             onClick={() => setOpen(false)}

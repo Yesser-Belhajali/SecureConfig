@@ -328,6 +328,7 @@ static int remediate_output_callback(struct xccdf_rule_result *rule_result, void
     cJSON_AddStringToObject(obj, "question", ctx->pending_question ? ctx->pending_question : "");
     cJSON_AddStringToObject(obj, "status", status);
     cJSON_AddStringToObject(obj, "severity", severity_to_str(xccdf_rule_result_get_severity(rule_result)));
+    cJSON_AddNumberToObject(obj, "weight", (double)xccdf_rule_result_get_weight(rule_result));
 
     cJSON_AddItemToObject(obj, "fixes", ctx->pending_fixes ? ctx->pending_fixes : cJSON_CreateArray());
     ctx->pending_fixes = NULL;
@@ -667,10 +668,6 @@ int validate_remediation_request(const char *benchmark_id, const char *profile_i
                                    char *out_invalid_id, size_t out_invalid_id_size){
 
     if(benchmark_id==NULL || profile_id==NULL || rule_ids==NULL || rule_count<=0){
-        return -1;
-    }
-
-    if(!is_valid_id_component(benchmark_id) || !is_valid_id_component(profile_id)){
         return -1;
     }
 

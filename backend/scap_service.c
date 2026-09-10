@@ -1512,29 +1512,105 @@ int delete_tailoring_profile(const char *benchmark_id, const char *profile_id){
 // qu'il n'existe jamais plus d'un <select> par idref dans le profil —
 // évite tout besoin de nettoyage ou de dépendance sur un ordre de
 // résolution des doublons.
-static bool apply_select(struct xccdf_profile *profile, const char *rule_id, bool selected) {
-    struct xccdf_select_iterator *it = xccdf_profile_get_selects(profile);
-    if (it != NULL) {
-        while (xccdf_select_iterator_has_more(it)) {
-            struct xccdf_select *existing = xccdf_select_iterator_next(it);
-            if (strcmp(xccdf_select_get_item(existing), rule_id) == 0) {
-                bool ok = xccdf_select_set_selected(existing, selected);
-                xccdf_select_iterator_free(it);
-                return ok;
-            }
-        }
-        xccdf_select_iterator_free(it);
+// remplace apply_select : lookup O(1) dans la table au lieu du parcours
+// linéaire de xccdf_profile_get_selects à chaque appel
+static bool apply_select_fast(struct xccdf_profile *profile, struct select_entry **table,
+                                const char *rule_id, bool selected) {
+    struct select_entry *entry = NULL;
+    HASH_FIND_STR(*table, rule_id, entry);
+
+    if (entry != NULL) {
+        return xccdf_select_set_selected(entry->select, selected);
     }
 
+    // nouvelle règle, absente du profil jusqu'ici
     struct xccdf_select *sel = xccdf_select_new();
     bool ok = (sel != NULL)
         && xccdf_select_set_item(sel, rule_id)
         && xccdf_select_set_selected(sel, selected)
         && xccdf_profile_add_select(profile, sel);
-    if (!ok && sel != NULL) {
-        xccdf_select_free(sel);
+    if (!ok) {
+        if (sel != NULL) xccdf_select_free(sel);
+        return false;
     }
-    return ok;
+
+    // ajoutée à la table aussi — garantit une cohérence si jamais le même
+    // rule_id apparaissait deux fois dans added_ids/removed_ids (ne devrait
+    // pas arriver côté appelant, mais évite un doublon silencieux de select
+    // si ça se produisait quand même)
+    struct select_entry *new_entry = malloc(sizeof(*new_entry));
+    if (new_entry != NULL) {
+        new_entry->rule_id = strdup(rule_id);
+        if (new_entry->rule_id != NULL) {
+            new_entry->select = sel;
+            HASH_ADD_KEYPTR(hh, *table, new_entry->rule_id, strlen(new_entry->rule_id), new_entry);
+        } else {
+            free(new_entry);
+        }
+    }
+
+    return true;
+}
+
+
+
+
+// libère uniquement les entrées de la table (struct select_entry + sa copie
+// de rule_id) — ne touche JAMAIS aux struct xccdf_select pointés, possédés
+// par profile/tailoring et libérés avec eux
+static void free_select_table(struct select_entry *table) {
+    struct select_entry *entry, *tmp;
+    HASH_ITER(hh, table, entry, tmp) {
+        HASH_DEL(table, entry);
+        free(entry->rule_id);
+        free(entry);
+    }
+}
+
+
+// construit la table à partir des selects déjà présents dans profile.
+// Retourne -1 en cas d'échec d'allocation (table partiellement construite
+// déjà nettoyée en interne avant de retourner).
+static int build_select_table(struct xccdf_profile *profile, struct select_entry **out_table) {
+    struct select_entry *table = NULL;
+
+    struct xccdf_select_iterator *it = xccdf_profile_get_selects(profile);
+    if (it == NULL) {
+        *out_table = NULL;
+        return 0; // profil sans aucun select existant — table vide, pas une erreur
+    }
+
+    while (xccdf_select_iterator_has_more(it)) {
+        struct xccdf_select *existing = xccdf_select_iterator_next(it);
+        const char *item_id = xccdf_select_get_item(existing);
+        if (item_id == NULL) {
+            xccdf_select_iterator_free(it);
+            free_select_table(table);
+            return -1; // select corrompu dans le tailoring existant (idref manquant)
+        }
+
+        struct select_entry *entry = malloc(sizeof(*entry));
+        if (entry == NULL) {
+            xccdf_select_iterator_free(it);
+            free_select_table(table);
+            return -1;
+        }
+
+        entry->rule_id = strdup(item_id);
+        if (entry->rule_id == NULL) {
+            free(entry);
+            xccdf_select_iterator_free(it);
+            free_select_table(table);
+            return -1;
+        }
+        entry->select = existing;
+
+        HASH_ADD_KEYPTR(hh, table, entry->rule_id, strlen(entry->rule_id), entry);
+    }
+    xccdf_select_iterator_free(it);
+
+    *out_table = table;
+    return 0;
 }
 
 // modifie la sélection de règles d'un profil de tailoring déjà existant.
@@ -1616,20 +1692,34 @@ int update_tailoring_profile(const char *benchmark_id, const char *profile_id,
     }
 
     // applique le diff : mutation en place, jamais de duplication
+    // construit la table une seule fois, avant les deux boucles
+    struct select_entry *select_table = NULL;
+    if (build_select_table(profile, &select_table) != 0) {
+        xccdf_tailoring_free(tailoring);
+        xccdf_benchmark_free(benchmark);
+        return -1;
+    }
+
+    // applique le diff : lookups O(1) via la table au lieu du parcours
+    // linéaire précédent
     for(int i=0; i<added_count; i++){
-        if(!apply_select(profile, added_ids[i], true)){
+        if(!apply_select_fast(profile, &select_table, added_ids[i], true)){
+            free_select_table(select_table);
             xccdf_tailoring_free(tailoring);
             xccdf_benchmark_free(benchmark);
             return -1;
         }
     }
     for(int i=0; i<removed_count; i++){
-        if(!apply_select(profile, removed_ids[i], false)){
+        if(!apply_select_fast(profile, &select_table, removed_ids[i], false)){
+            free_select_table(select_table);
             xccdf_tailoring_free(tailoring);
             xccdf_benchmark_free(benchmark);
             return -1;
         }
     }
+
+    free_select_table(select_table); // plus besoin après les deux boucles
 
     // à partir d'ici, policy_model possède benchmark ET tailoring - ne plus
     // les free séparément, seul policy_model_free les libère ensemble

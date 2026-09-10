@@ -50,6 +50,7 @@ export interface Rule {
 
 export interface RuleResult extends Rule {
   status: string;
+  weight: number;
 }
 
 export interface SaveProfilePayload {

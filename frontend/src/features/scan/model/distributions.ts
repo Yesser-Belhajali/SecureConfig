@@ -46,3 +46,21 @@ const benchmarkIds: Record<string, string> = {
 export function buildBenchmarkId(distributionId: string, version: string): string {
   return benchmarkIds[`${distributionId}:${version}`] ?? '';
 }
+
+// Reverse lookup pour retrouver distribution/version à partir d'un
+// benchmarkId présent dans l'URL (ex: "ubuntu2404" -> ubuntu / 24.04).
+const reverseBenchmarkIds: Record<string, { distributionId: string; version: string }> = Object.fromEntries(
+  Object.entries(benchmarkIds)
+    .filter(([, id]) => id !== '')
+    .map(([key, id]) => {
+      const separatorIndex = key.indexOf(':');
+      return [
+        id,
+        { distributionId: key.slice(0, separatorIndex), version: key.slice(separatorIndex + 1) },
+      ];
+    })
+);
+
+export function parseBenchmarkId(benchmarkId: string): { distributionId: string; version: string } | null {
+  return reverseBenchmarkIds[benchmarkId] ?? null;
+}

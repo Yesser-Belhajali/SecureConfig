@@ -1,5 +1,5 @@
 // features/scan/model/useRemediationStream.ts
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL } from "./api";
 import type { RuleResult } from "./types";
 
@@ -114,5 +114,25 @@ export function useRemediationStream(benchmarkId: string, profileId: string) {
     };
   }, []);
 
-  return { start, cancel, results, score, errorMessage, status };
+  const SCORABLE_STATUSES = new Set(["PASS", "FAIL", "FIXED"]);
+
+  const liveScore = useMemo(() => {
+  if (results.length === 0) return null;
+
+  const latestByRule = new Map<string, RuleResult>();
+  for (const r of results) {
+    latestByRule.set(r.id, r);
+  }
+
+  let weightedPass = 0;
+  let weightedTotal = 0;
+  for (const r of latestByRule.values()) {
+    if (!SCORABLE_STATUSES.has(r.status) && r.status !== "FIXED") continue;
+    weightedTotal += r.weight;
+    if (r.status === "PASS" || r.status === "FIXED") weightedPass += r.weight;
+  }
+  return weightedTotal > 0 ? (weightedPass / weightedTotal) * 100 : null;
+}, [results]);
+
+  return { start, cancel, results, score, liveScore, errorMessage, status };
 }

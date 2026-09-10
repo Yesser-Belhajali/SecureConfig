@@ -1,11 +1,13 @@
 // features/scan/model/useScanStream.ts
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL, getSelectedRulesForProfile } from "./api";
 import type { RuleResult } from "./types";
 
 type ScanEvent =
   | (RuleResult & { type: "result" })
   | { type: "done"; score: number };
+
+const SCORABLE_STATUSES = new Set(["PASS", "FAIL", "FIXED"]);
 
 export function useScanStream(benchmarkId: string, profileId: string, autoStart = false) {
   const [inProgressTitle, setInProgressTitle] = useState<string | null>(null);
@@ -76,5 +78,18 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { start, inProgressTitle, results, totalRules, score, status };
+  const liveScore = useMemo(() => {
+    const scorable = results.filter((r) => SCORABLE_STATUSES.has(r.status));
+    if (scorable.length === 0) return null;
+
+    let weightedPass = 0;
+    let weightedTotal = 0;
+    for (const r of scorable) {
+      weightedTotal += r.weight;
+      if (r.status === "PASS") weightedPass += r.weight;
+    }
+    return weightedTotal > 0 ? (weightedPass / weightedTotal) * 100 : null;
+  }, [results]);
+
+  return { start, inProgressTitle, results, totalRules, score, liveScore, status };
 }

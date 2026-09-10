@@ -1,16 +1,10 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getProfiles, deleteProfile as deleteProfileRequest } from "./api";
 import type { Profile } from "./types";
-import { distributions, buildBenchmarkId, type Distribution } from "./distributions";
+import { distributions, buildBenchmarkId, parseBenchmarkId, type Distribution } from "./distributions";
 
 export type Screen = "system" | "profile";
-
-interface ScanLocationState {
-  screen?: Screen;
-  distributionId?: string;
-  version?: string;
-}
 
 interface UseScanFlowResult {
   screen: Screen;
@@ -35,14 +29,26 @@ interface UseScanFlowResult {
 }
 
 export function useScanFlow(): UseScanFlowResult {
-  const location = useLocation();
-  const navigationState = location.state as ScanLocationState | null;
+  const navigate = useNavigate();
+  const params = useParams<{ benchmarkId?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [screen, setScreen] = useState<Screen>(
-    navigationState?.screen === "profile" ? "profile" : "system"
-  );
-  const [distributionId, setDistributionId] = useState(navigationState?.distributionId ?? "");
-  const [version, setVersion] = useState(navigationState?.version ?? "");
+  // L'URL est la seule source de vérité pour l'écran affiché :
+  // /benchmarks (système) vs /benchmarks/:benchmarkId/profiles (profil).
+  // Plus aucun state React ni location.state pour ça -> refresh, retour
+  // arrière du navigateur et liens partagés restent cohérents.
+  const screen: Screen = params.benchmarkId ? "profile" : "system";
+
+  const urlBenchmarkId = params.benchmarkId ?? "";
+  const parsedFromUrl = urlBenchmarkId ? parseBenchmarkId(urlBenchmarkId) : null;
+
+  // Écran système : distribution/version choisies vivent en query params.
+  // Écran profil : on les retrouve à partir du benchmarkId de la route.
+  const distributionId =
+    screen === "profile" ? (parsedFromUrl?.distributionId ?? "") : (searchParams.get("distribution") ?? "");
+  const version =
+    screen === "profile" ? (parsedFromUrl?.version ?? "") : (searchParams.get("version") ?? "");
+
   const [selectedProfile, setSelectedProfile] = useState("");
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -54,20 +60,9 @@ export function useScanFlow(): UseScanFlowResult {
   const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
 
   const selectedDistribution = distributions.find((item) => item.id === distributionId);
-  const benchmarkId = selectedDistribution ? buildBenchmarkId(distributionId, version) : "";
+  const benchmarkId =
+    screen === "profile" ? urlBenchmarkId : (selectedDistribution ? buildBenchmarkId(distributionId, version) : "");
   const canContinue = Boolean(benchmarkId);
-
-  // Resynchronise l'état interne à chaque nouvelle navigation vers /scan,
-  // même si React ne démonte pas le composant entre deux visites (même route).
-  // Dépendances sur des primitives (string), pas sur l'objet navigationState
-  // lui-même : location.state est recréé à chaque render, donc le mettre
-  // directement en dépendance provoquerait une boucle infinie de l'effet.
-  useEffect(() => {
-    if (navigationState?.screen) setScreen(navigationState.screen);
-    if (navigationState?.distributionId !== undefined) setDistributionId(navigationState.distributionId);
-    if (navigationState?.version !== undefined) setVersion(navigationState.version);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigationState?.screen, navigationState?.distributionId, navigationState?.version]);
 
   useEffect(() => {
     if (screen !== "profile" || !benchmarkId) return;
@@ -99,24 +94,30 @@ export function useScanFlow(): UseScanFlowResult {
   const toggleVersion = (nextDistributionId: string, nextVersion: string) => {
     const isSameSelection = distributionId === nextDistributionId && version === nextVersion;
     if (isSameSelection) {
-      setDistributionId("");
-      setVersion("");
+      setSearchParams({}, { replace: true });
     } else {
-      setDistributionId(nextDistributionId);
-      setVersion(nextVersion);
+      setSearchParams({ distribution: nextDistributionId, version: nextVersion }, { replace: true });
     }
   };
 
   const resetSystemChoice = () => {
-    setDistributionId("");
-    setVersion("");
+    setSearchParams({}, { replace: true });
   };
 
-  const goToProfileScreen = () => setScreen("profile");
-  const goToSystemScreen = () => setScreen("system");
+  const goToProfileScreen = () => {
+    if (!benchmarkId) return;
+    navigate(`/benchmarks/${benchmarkId}/profiles`);
+  };
+
+  const goToSystemScreen = () => {
+    // conserve la sélection courante pour préremplir "Modifier le choix"
+    const search =
+      distributionId && version ? `?${new URLSearchParams({ distribution: distributionId, version }).toString()}` : "";
+    navigate(`/benchmarks${search}`);
+  };
 
   const deleteProfile = (profileId: string) => {
-    if (deletingProfileId) return; // une suppression à la fois
+    if (deletingProfileId) return;
 
     setDeletingProfileId(profileId);
     setDeleteErrors((current) => {

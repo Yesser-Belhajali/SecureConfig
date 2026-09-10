@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include "uthash.h"
+
 
 
 
@@ -70,6 +72,20 @@ struct resolved_profile_context {
     struct xccdf_policy_model *policy_model;
     struct xccdf_profile *profile;           // profil trouvé (natif ou tailoring)
 };
+
+
+// table de correspondance rule_id -> xccdf_select existant, construite une
+// seule fois par appel de update_tailoring_profile — remplace le parcours
+// linéaire de apply_select (O(N*S)) par des lookups O(1) (O(S+N) au total)
+struct select_entry {
+    char *rule_id;              // clé — copie indépendante, pas un pointeur
+                                 // interne à OpenSCAP dont la durée de vie
+                                 // n'est pas garantie au-delà de l'itérateur
+    struct xccdf_select *select; // valeur — possédé par le profile, jamais
+                                 // libéré par nous
+    UT_hash_handle hh;
+};
+
 
 const char *get_rule_title(struct xccdf_rule *rule);
 const char *get_rule_question(struct xccdf_rule *rule);

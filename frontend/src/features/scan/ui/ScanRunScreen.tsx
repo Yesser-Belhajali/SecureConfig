@@ -22,10 +22,7 @@ interface ScanRunLocationState {
 const SEVERITIES = ["all", "high", "medium", "low", "unknown"];
 const STATUSES = ["all", "pass", "fail", "other"] as const;
 
-function matchesStatusFilter(
-  status: string,
-  filter: (typeof STATUSES)[number]
-): boolean {
+function matchesStatusFilter(status: string, filter: (typeof STATUSES)[number]): boolean {
   if (filter === "all") return true;
   if (filter === "pass") return status === "PASS";
   if (filter === "fail") return status === "FAIL";
@@ -56,14 +53,9 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
   const [search, setSearch] = useState("");
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
 
-  // mode remédiation : activé par le bouton "Remédier", uniquement disponible
-  // une fois le scan terminé — les FAIL du scan sont la seule source possible
-  // de rule_ids envoyés au backend, jamais une liste construite ailleurs
   const [remediationMode, setRemediationMode] = useState(false);
   const [selectedForRemediation, setSelectedForRemediation] = useState<Set<string>>(new Set());
 
-  // signale toute erreur de remédiation via toast, dès qu'elle apparaît —
-  // même pattern que ScanScreen/ProfileRulesScreen pour rester cohérent
   const prevRemediationErrorRef = useState<{ current: string | null }>({ current: null })[0];
   if (remediationError && remediationError !== prevRemediationErrorRef.current) {
     prevRemediationErrorRef.current = remediationError;
@@ -88,34 +80,22 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
 
   const visibleResults = useMemo(() => {
     return results.filter((r) => {
-      const matchesSeverity =
-        severityFilter === "all" || r.severity?.toLowerCase() === severityFilter;
+      const matchesSeverity = severityFilter === "all" || r.severity?.toLowerCase() === severityFilter;
       const matchesStatus = matchesStatusFilter(r.status, statusFilter);
-      const matchesSearch =
-        normalizedSearch.length === 0 || r.title.toLowerCase().includes(normalizedSearch);
+      const matchesSearch = normalizedSearch.length === 0 || r.title.toLowerCase().includes(normalizedSearch);
       return matchesSeverity && matchesStatus && matchesSearch;
     });
   }, [results, severityFilter, statusFilter, normalizedSearch]);
 
-  // en mode remédiation, on ne montre que les FAIL — l'utilisateur ne doit
-  // jamais pouvoir sélectionner une règle déjà PASS, ça n'a pas de sens
-  const remediableResults = useMemo(
-    () => results.filter((r) => r.status === "FAIL"),
-    [results]
-  );
+  const remediableResults = useMemo(() => results.filter((r) => r.status === "FAIL"), [results]);
 
-  const selectedResult = selectedRuleId
-    ? (results.find((r) => r.id === selectedRuleId) ?? null)
-    : null;
+  const selectedResult = selectedRuleId ? (results.find((r) => r.id === selectedRuleId) ?? null) : null;
 
   const toggleRemediationSelection = (ruleId: string) => {
     setSelectedForRemediation((prev) => {
       const next = new Set(prev);
-      if (next.has(ruleId)) {
-        next.delete(ruleId);
-      } else {
-        next.add(ruleId);
-      }
+      if (next.has(ruleId)) next.delete(ruleId);
+      else next.add(ruleId);
       return next;
     });
   };
@@ -147,28 +127,34 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
       </button>
 
       <div className="scan-page">
-        <div className="scan-header-row">
+        {/* badge de statut en haut, avant le titre */}
+        {status === "running" && (
+          <span className="scan-status-badge is-running scan-status-badge-top">
+            <span className="scan-status-dot" aria-hidden="true" />
+            Scan en cours
+          </span>
+        )}
+        {status === "done" && (
+          <span className="scan-status-badge is-done scan-status-badge-top">
+            <span className="scan-status-dot" aria-hidden="true" />
+            Scan terminé
+          </span>
+        )}
+        {status === "error" && (
+          <span className="scan-status-badge is-error scan-status-badge-top">
+            <span className="scan-status-dot" aria-hidden="true" />
+            Erreur
+          </span>
+        )}
+
+        <div className="scan-header-row scan-header-row--plain">
           <h1>Résultats</h1>
 
-          {status === "running" && (
-            <span className="scan-status-badge is-running">
-              <span className="scan-status-dot" aria-hidden="true" />
-              Scan en cours
-            </span>
-          )}
-
-          {status === "done" && (
-            <span className="scan-status-badge is-done">
-              <span className="scan-status-dot" aria-hidden="true" />
-              Scan terminé
-            </span>
-          )}
-
-          {status === "error" && (
-            <span className="scan-status-badge is-error">
-              <span className="scan-status-dot" aria-hidden="true" />
-              Erreur
-            </span>
+          {/* le bouton Remédier prend la place de "Scan terminé" */}
+          {status === "done" && failCount > 0 && !remediationMode && (
+            <button type="button" className="scan-remediate-trigger" onClick={() => setRemediationMode(true)}>
+              Remédier
+            </button>
           )}
         </div>
 
@@ -191,18 +177,6 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
           </div>
         )}
 
-        {/* bouton "Remédier" : uniquement une fois le scan terminé, et
-            seulement s'il y a des FAIL à corriger */}
-        {status === "done" && failCount > 0 && !remediationMode && (
-          <button
-            type="button"
-            className="scan-remediate-trigger"
-            onClick={() => setRemediationMode(true)}
-          >
-            Remédier ({failCount} règle{failCount > 1 ? "s" : ""} en échec)
-          </button>
-        )}
-
         {remediationMode && (
           <section className="scan-remediation-panel" aria-label="Sélection des règles à remédier">
             <div className="scan-remediation-header">
@@ -221,62 +195,65 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
             </div>
 
             {remediableResults.length === 0 ? (
-              <p className="scan-empty">Aucune règle en échec à corriger.</p>
+              <p className="rules-empty">Aucune règle en échec à corriger.</p>
             ) : (
-              <div className="scan-result-list">
+              <div className="rule-list">
                 {remediableResults.map((r) => (
-                  <label key={r.id} className="scan-remediation-row">
+                  <div key={r.id} className="rule-row">
                     <input
+                      className="rule-row-check"
                       type="checkbox"
                       checked={selectedForRemediation.has(r.id)}
                       onChange={() => toggleRemediationSelection(r.id)}
                       disabled={remediationStatus === "running"}
+                      aria-label={`Sélectionner ${r.title} pour remédiation`}
                     />
+                    <button className="rule-row-main" onClick={() => setSelectedRuleId((c) => (c === r.id ? null : r.id))}>
+                      <span className="rule-severity-dot severity-high" aria-hidden="true" />
+                      <span className="rule-title">{r.title}</span>
+                      {r.severity && (
+                        <span className={`rule-severity severity-${r.severity.toLowerCase()}`}>{r.severity}</span>
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="rules-savebar-trigger" style={{ marginTop: "1.25rem" }}>
+              <span className="rules-savebar-count">
+                {selectedForRemediation.size} règle{selectedForRemediation.size > 1 ? "s" : ""} sélectionnée
+                {selectedForRemediation.size > 1 ? "s" : ""}
+              </span>
+              <button
+                type="button"
+                className="scan-remediation-launch"
+                onClick={handleStartRemediation}
+                disabled={selectedForRemediation.size === 0 || remediationStatus === "running"}
+              >
+                {remediationStatus === "running" ? "Remédiation en cours..." : "Corriger la sélection"}
+              </button>
+            </div>
+
+            {remediationResults.length > 0 && (
+              <div className="scan-remediation-results">
+                <p className="scan-remediation-results-label">Résultats de la remédiation</p>
+                <div className="scan-result-list">
+                  {remediationResults.map((r, idx) => (
                     <ScanResultRow
+                      key={`${r.id}-${idx}`}
                       title={r.title}
                       status={r.status}
-                      isActive={r.id === selectedRuleId}
-                      onClick={() =>
-                        setSelectedRuleId((current) => (current === r.id ? null : r.id))
-                      }
+                      severity={r.severity}
+                      isActive={false}
+                      onClick={() => {}}
                     />
-                  </label>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
 
-            <button
-              type="button"
-              className="scan-remediation-launch"
-              onClick={handleStartRemediation}
-              disabled={selectedForRemediation.size === 0 || remediationStatus === "running"}
-            >
-              {remediationStatus === "running"
-                ? "Remédiation en cours..."
-                : `Corriger ${selectedForRemediation.size} règle${selectedForRemediation.size > 1 ? "s" : ""}`}
-            </button>
-
-            {/* résultats de remédiation : réutilise ScanResultRow, la forme
-                JSON est identique (id, title, status, fixes, ...) — seuls
-                FIXED/ERROR viennent s'ajouter aux statuts déjà gérés */}
-            {remediationResults.length > 0 && (
-              <div className="scan-result-list scan-remediation-results">
-                <p className="scan-remediation-results-label">Résultats de la remédiation</p>
-                {remediationResults.map((r, idx) => (
-                  <ScanResultRow
-                    key={`${r.id}-${idx}`}
-                    title={r.title}
-                    status={r.status}
-                    isActive={false}
-                    onClick={() => {}}
-                  />
-                ))}
-              </div>
-            )}
-
-            {remediationStatus === "done" && (
-              <p className="scan-remediation-done">Remédiation terminée.</p>
-            )}
+            {remediationStatus === "done" && <p className="scan-remediation-done">Remédiation terminée.</p>}
           </section>
         )}
 
@@ -290,7 +267,6 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
               {status === "running" && (
                 <div className="scan-in-progress">
                   <span className="scan-in-progress-spinner" aria-hidden="true" />
-
                   {inProgressTitle ? (
                     <span>
                       Test en cours : <strong>{inProgressTitle}</strong>
@@ -298,7 +274,6 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
                   ) : (
                     <span>Démarrage du scan...</span>
                   )}
-
                   {totalRules !== null && (
                     <span className="scan-progress-count">
                       ({evaluatedCount} / {totalRules})
@@ -310,21 +285,10 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
               {status === "done" && (
                 <>
                   <div className="rules-search">
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <circle cx="11" cy="11" r="8" />
                       <line x1="21" y1="21" x2="16.65" y2="16.65" />
                     </svg>
-
                     <input
                       type="text"
                       placeholder="Rechercher un résultat par nom..."
@@ -337,12 +301,7 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
                   <div className="rules-filters" role="group" aria-label="Filtrer par statut">
                     <span>Statut</span>
                     {STATUSES.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        className={statusFilter === s ? "is-selected" : ""}
-                        onClick={() => setStatusFilter(s)}
-                      >
+                      <button key={s} type="button" className={statusFilter === s ? "is-selected" : ""} onClick={() => setStatusFilter(s)}>
                         {s === "all" ? "Tous" : s === "pass" ? "Réussi" : s === "fail" ? "Échoué" : "Autre"}
                       </button>
                     ))}
@@ -351,12 +310,7 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
                   <div className="rules-filters" role="group" aria-label="Filtrer par sévérité">
                     <span>Sévérité</span>
                     {SEVERITIES.map((sev) => (
-                      <button
-                        key={sev}
-                        type="button"
-                        className={severityFilter === sev ? "is-selected" : ""}
-                        onClick={() => setSeverityFilter(sev)}
-                      >
+                      <button key={sev} type="button" className={severityFilter === sev ? "is-selected" : ""} onClick={() => setSeverityFilter(sev)}>
                         {sev === "all" ? "Toutes" : sev}
                       </button>
                     ))}
@@ -365,27 +319,30 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
               )}
             </section>
 
-            {visibleResults.length === 0 ? (
-              <p className="scan-empty">
-                {evaluatedCount === 0 && status === "running"
-                  ? "En attente des premiers résultats..."
-                  : "Aucun résultat ne correspond à ces filtres."}
-              </p>
-            ) : (
-              <div className="scan-result-list">
-                {visibleResults.map((r) => (
-                  <ScanResultRow
-                    key={r.id}
-                    title={r.title}
-                    status={r.status}
-                    isActive={r.id === selectedRuleId}
-                    onClick={() =>
-                      setSelectedRuleId((current) => (current === r.id ? null : r.id))
-                    }
-                  />
-                ))}
+            <section className="scan-remediation-panel" aria-label="Résultats du scan">
+              <div className="scan-remediation-header">
+                <h2>Résultats du scan</h2>
               </div>
-            )}
+
+              {visibleResults.length === 0 ? (
+                <p className="scan-empty">
+                  {evaluatedCount === 0 && status === "running" ? "En attente des premiers résultats..." : "Aucun résultat ne correspond à ces filtres."}
+                </p>
+              ) : (
+                <div className="scan-result-list">
+                  {visibleResults.map((r) => (
+                    <ScanResultRow
+                      key={r.id}
+                      title={r.title}
+                      status={r.status}
+                      severity={r.severity}
+                      isActive={r.id === selectedRuleId}
+                      onClick={() => setSelectedRuleId((current) => (current === r.id ? null : r.id))}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
 
             <RuleDetailPanel rule={selectedResult} onClose={() => setSelectedRuleId(null)} />
           </>

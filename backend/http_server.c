@@ -22,6 +22,11 @@ struct connection_info {
 
 static int resolve_ds_path(const char *benchmark_id, char *out_path, size_t out_size) {
     // convention : data/<id>/ssg-<id>-ds.xml
+
+    if (!is_valid_id_component(benchmark_id)) {
+        return 0;
+    }
+
     int n = snprintf(out_path, out_size, "../data/%s/ssg-%s-ds.xml", benchmark_id, benchmark_id);
     if (n < 0 || (size_t)n >= out_size) {
         return 0; // troncature, id trop long

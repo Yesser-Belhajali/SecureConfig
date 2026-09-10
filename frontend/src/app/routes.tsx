@@ -14,6 +14,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: "scan", element: <Scan /> },
+      { path: "benchmarks", element: <Scan /> },
+      { path: "benchmarks/:benchmarkId/profiles", element: <Scan /> },
       { path: "about", element: <About /> },
       {
         path: "benchmarks/:benchmarkId/profiles/:profileId/view",

@@ -1293,27 +1293,15 @@ OSCAP_API void oscap_init(void);
 OSCAP_API void oscap_cleanup(void);
 
 
--Yesser tfa9ed el race condition bich el scan mayoufa ken ki nab3ath kol chay
--Fassa5 validate_remediation_request w badel el lezem(hez akel if benchmark==NULL li blasa o5ra)
--Yesser el front 3andou faza ya9ra liste ta3 el rules elli mahomch mawjoudin al9aha w fassa5ha
+-Yesser zid tfa9ed 7keyet is_valid_id_component,netsawer ken n7otha juste fel serveur HTTP ykoun 5ir
+-Yesser el front 3andou faza ya9ra liste ta3 el rules elli mahomch mawjoudin fel cas d'erreur al9aha w fassa5ha
 -Yesser rigel fazet el weight bich el score elli yo5rej yji bedhabt
--Yesser rod les recherches mta3 les profils 3andek yabdew bel tailoring 9bal
--Yesser tfa9ed ken openscap ta3mel erreur ki tal9ach ID walla lezemni ena nimplemnteha
 -Yesser zid les LOGS
 -Yesser rod les erreurs spécifiques akther
 -Yesser tfa9ed platfomrs mehech mawjouda fel frontend
--Yesser tfa9ed ken el code d erreur el jdid mta3 n7ot fi profil rule mehech mawjouda ye5dem walla le
 -yesser rigel el remediation
 -Yesser tfa9ed akel doura ta3 el score
 -Yesser optimisi el complexité mta3 el modification mta3 profil
--Yesser fama mochkol ki yabda 3dad el rules s8ir mayeteb3ath chay sa3at tsir bara sala7ha
--Yesser zid el logs
--Yesser zid el ID mta3 les profils fel affichage
--Yesser zid kifech tfassa5 les profils de tailoring
--Yesser fel recherche kona najmou nesta3mlou xccdf_benchmark_get_profile_by_id w xccdf_tailoring_get_profile_by_id zeda
--Yesser hak 3andek fonction ta3mallek el benchmark w kol tnajem tsa8er fih barcha el code ama mouch tawa
--Yesser fama mochkla fel backend ennou yparsi el benchmark 2 marat famech 3lech,rodou y3awed yab3ath el benchmark lel fonction ta3 list_tailoring_profiles walla al9a 7al e5er(ok)
--Yesser tfa9ed ken rule wel res mte3ha 3andhom nafs el ID walla le(OUI rule et rule_result ont le meme ID)
 -Yesser rigel el CSS fama 7ajet zeyda el AI nse bich yfassa5ha
 -Yesser rigel mochkol mta3 Scan.tsx
 -Yesser tout selectionner walla tout deselectionner rzayna chwaya fi creer mon propre profil

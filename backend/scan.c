@@ -342,6 +342,7 @@ static int scan_output_callback(struct xccdf_rule_result *rule_result, void *usr
     cJSON_AddStringToObject(obj, "question", ctx->pending_question ? ctx->pending_question : "");
     cJSON_AddStringToObject(obj, "status", status);
     cJSON_AddStringToObject(obj, "severity", severity_to_str(xccdf_rule_result_get_severity(rule_result)));
+    cJSON_AddNumberToObject(obj, "weight", (double)xccdf_rule_result_get_weight(rule_result));
 
     // transfert d'ownership : obj possède maintenant ces éléments, pas de
     // cJSON_Delete séparé à faire dessus

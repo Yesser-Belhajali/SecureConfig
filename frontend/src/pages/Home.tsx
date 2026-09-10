@@ -56,7 +56,7 @@ export function Home() {
             SecureConfig est une plateforme conçue pour auditer les systèmes Linux avec les référentiels adaptés à vos exigences de conformité et de sécurité.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <NavLink to="/scan" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-150 text-white" style={{ backgroundColor: '#8B5CF6' }} onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#7C3AED')} onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#8B5CF6')}>
+            <NavLink to="/benchmarks" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-150 text-white" style={{ backgroundColor: '#8B5CF6' }} onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#7C3AED')} onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#8B5CF6')}>
               Lancer un scan
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
             </NavLink>
@@ -85,7 +85,7 @@ export function Home() {
       <section className="max-w-6xl mx-auto px-6 pb-20">
         <div className="rounded-2xl p-10 lg:p-14 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6" style={{ backgroundColor: '#FAF9FD', border: '1px solid rgba(139,92,246,0.18)' }}>
           <div><h2 className="text-2xl font-bold text-[#1E1B29] mb-2">Prêt à auditer votre configuration ?</h2><p className="text-[#8B8794] text-sm max-w-md">Choisissez votre système, sélectionnez un profil et lancez l’évaluation.</p></div>
-          <NavLink to="/scan" className="flex-shrink-0 inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm text-white" style={{ backgroundColor: '#8B5CF6' }}><CheckIcon />Démarrer l'audit</NavLink>
+          <NavLink to="/benchmarks" className="flex-shrink-0 inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-semibold text-sm text-white" style={{ backgroundColor: '#8B5CF6' }}><CheckIcon />Démarrer l'audit</NavLink>
         </div>
       </section>
     </div>
