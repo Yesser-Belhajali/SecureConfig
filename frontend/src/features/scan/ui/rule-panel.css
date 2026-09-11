@@ -94,7 +94,6 @@
 
 /* === Contrôles (progression, actions groupées, filtres) === */
 
-/* remplace .rules-controls / .scan-controls existants */
 .rules-controls,
 .scan-controls {
   display: grid;
@@ -448,50 +447,8 @@
   margin: 0 0 1.75rem;
 }
 .scan-header-row h1 { display: inline-flex; align-items: center; gap: .75rem; margin: 0; color: #1e1b29; font: 700 clamp(1.55rem, 3vw, 2.35rem)/1.2 Outfit, sans-serif; letter-spacing: -.035em; }
-.scan-header-row h1::before { content: "Scan"; padding: .32rem .55rem; color: #7c3aed; border: 1px solid rgba(139,92,246,.32); border-radius: 999px; background: rgba(139,92,246,.08); font: 600 .67rem "JetBrains Mono", monospace; letter-spacing: .07em; text-transform: uppercase; }
-
-.scan-status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: .5rem;
-  padding: .45rem .9rem;
-  border-radius: 999px;
-  font: 600 .78rem Inter, sans-serif;
-}
-.scan-status-badge.is-running { color: #6d28d9; background: rgba(139,92,246,.10); border: 1px solid rgba(139,92,246,.3); }
-.scan-status-badge.is-done { color: #15803d; background: rgba(21,128,61,.10); border: 1px solid rgba(21,128,61,.3); }
-.scan-status-badge.is-error { color: #b91c1c; background: rgba(185,28,28,.10); border: 1px solid rgba(185,28,28,.3); }
-
-.scan-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.scan-status-badge.is-running .scan-status-dot { background: #8b5cf6; animation: scan-pulse 1.1s ease-in-out infinite; }
-.scan-status-badge.is-done .scan-status-dot { background: #16a34a; }
-.scan-status-badge.is-error .scan-status-dot { background: #dc2626; }
-
-@keyframes scan-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: .4; transform: scale(.7); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .scan-status-badge.is-running .scan-status-dot { animation: none; }
-}
 
 /* barre de progression + règle en cours */
-
-.scan-controls {
-  display: grid;
-  gap: .8rem;
-  margin: 0 0 1.25rem;
-  padding: 1rem;
-  border: 1px solid rgba(15, 23, 42, .08);
-  border-radius: 12px;
-  background: #faf9fd;
-}
 
 .scan-progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: #e9e4f7; }
 .scan-progress-track span {
@@ -703,16 +660,6 @@
 
 /* === Panneau de détail : idents, remédiation, références === */
 
-.rule-fixtext-list,
-.rule-reference-list {
-  display: flex;
-  flex-direction: column;
-  gap: .4rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .rule-fix-list {
   display: flex;
   flex-direction: column;
@@ -875,26 +822,6 @@
   overflow-y: auto;
   padding: 0 1.5rem 1.5rem;
 }
-
-.scan-result-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 1.25rem 0;
-}
-.scan-result-table td {
-  padding: 0.65rem 0.8rem;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
-  font-size: 0.88rem;
-  vertical-align: top;
-}
-.scan-result-table tr:first-child td { border-top: none; }
-.scan-result-table td:first-child {
-  width: 32%;
-  color: #7c3aed;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.scan-result-table td:last-child { color: #3d3555; word-break: break-word; }
 
 .scan-result-status-bar {
   display: block;
@@ -1093,23 +1020,6 @@
 }
 .scan-remediation-launch:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
 
-/* à ajouter dans rule-panel.css */
-
-.scan-header-row--plain h1::before { content: none; }
-
-.scan-status-badge-top {
-  display: flex;
-  width: fit-content;
-  margin: 0 auto 2rem;
-  padding: 1rem 2rem;
-  gap: .75rem;
-  font-size: 1.05rem;
-}
-.scan-status-badge-top .scan-status-dot {
-  width: 10px;
-  height: 10px;
-}
-
 .scan-remediation-panel {
   margin: 0 0 1.5rem;
   padding: 1.25rem;
@@ -1144,27 +1054,37 @@
 .scan-remediation-cancel:hover:not(:disabled) { color: #1e1b29; border-color: rgba(15,23,42,.28); }
 .scan-remediation-cancel:disabled { opacity: .5; cursor: not-allowed; }
 
-.scan-remediation-results {
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid rgba(139, 92, 246, .15);
-}
-.scan-remediation-results-label {
-  margin: 0 0 .75rem;
-  color: #6d28d9;
-  font: 600 .78rem "JetBrains Mono", monospace;
+.rules-count-line { margin: 1.25rem 0 0; color: #6b7280; font-size: .85rem; }
+
+.scan-remediation-separator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+  color: var(--text-muted, #6b7280);
+  font-size: 0.8rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: .05em;
-}
-.scan-remediation-done {
-  margin: 1rem 0 0;
-  padding: .75rem 1rem;
-  border: 1px solid rgba(21,128,61,.25);
-  border-radius: 10px;
-  background: rgba(21,128,61,.06);
-  color: #15803d;
-  font: 600 .85rem Inter, sans-serif;
-  text-align: center;
+  letter-spacing: 0.05em;
 }
 
-.rules-count-line { margin: 1.25rem 0 0; color: #6b7280; font-size: .85rem; }
+.scan-remediation-separator::before,
+.scan-remediation-separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-color, #e5e7eb);
+}
+
+
+.scan-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 2rem 1.5rem 0;
+}
+.scan-top-row .scan-back-button {
+  margin: 0;
+}

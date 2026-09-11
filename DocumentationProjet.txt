@@ -1293,40 +1293,29 @@ OSCAP_API void oscap_init(void);
 OSCAP_API void oscap_cleanup(void);
 
 
--Yesser zid tfa9ed 7keyet is_valid_id_component,netsawer ken n7otha juste fel serveur HTTP ykoun 5ir
+-Yesser fama mochkla ki nwa9ef el scan bi entree MHD y9olli erreur fatale,sala7ha la7keya
+
+
+
+-lorsqu'on est sur modifier profil je veux que le bouton de retour me rend vers consulter le profil et pas vers la liste des profils
+-le box qui affiche scan en cours/terminé/erreur je veux le rendre plus petit et le mettre en haut a droite de la page
+-On a besoin d'une nouvelle page pour la remédiation donc soit le bouton remédier me rend vers une nouvelle page ou je coche la bas et puis quand je lance la remediation le flux vient la bas soit le bouton remedier m affiche sur la page scan et puis quand je valide il m'ouvre la deuxieme page je crois que la deuxieme idee est plus bonne
+-le bouton annuler pres de la remediation on doit le deplacer vers corriger la sélection
+-la page remédiation on n'a plus besoin d'affiche scan en cours/echec/terminé et la barre de progression elle aussi est non nécessaire
+-On doit afficher une barre de filtre similaire a celle du scan mais on cherche pas nom,severité car resultat est toujours fail
+-Donc normalement l'appui sur le bouton remédier va transporter les regles en fail vers la nouvelle page de remédiation ou on choisit et tout puis sur cette meme page on nous affiche le flux SSE du scan et apres on nous indique que maintenant c'est la partie de remédiation,nous devons afficher une séparation ou autre et on commence le flux SSE de remédiation
+-La barre en bas remédiation terminée je crois qu'on la déplace en haut et elle devient scan en cours/teminé/échec puis elle prend la remédiation
+-On ne la déplace pas pres de la barre du header mais juste dessous
+
+
 -Yesser el front 3andou faza ya9ra liste ta3 el rules elli mahomch mawjoudin fel cas d'erreur al9aha w fassa5ha
--Yesser rigel fazet el weight bich el score elli yo5rej yji bedhabt
 -Yesser zid les LOGS
 -Yesser rod les erreurs spécifiques akther
--Yesser tfa9ed platfomrs mehech mawjouda fel frontend
 -yesser rigel el remediation
--Yesser tfa9ed akel doura ta3 el score
--Yesser optimisi el complexité mta3 el modification mta3 profil
--Yesser rigel el CSS fama 7ajet zeyda el AI nse bich yfassa5ha
--Yesser rigel mochkol mta3 Scan.tsx
--Yesser tout selectionner walla tout deselectionner rzayna chwaya fi creer mon propre profil
--Yesser akel boutons de retour 9a3din yehelkou fel application bara sala7hom
--Yesser ki tod5ol li creer votre propre profil w tarja3 lil liste des profils tal9aha vide lezem el retour ya ema y3awed yab3ath requete ya ema yet5abew fel cache les profils
--Yesser rahou reinitialiser fi afficher regles profils t3awed ta3mel requete zid choufha la7keya
--Yesser verifi el contenu mta3 opensuse el profil ma5arrajli ken 3 regles
--Yesser sob outil mta3 verif double free
--Yesser 8odwa rigel kifech ki na5tarou profil y5arajli les regles mte3ou el kol selectionnées w ki na7i wa7da tetna7a mel policy mba3ed lel évaluation
--Yesser 8odwa zid lister toutes les regles fel benchmark zeda
 
 
 
-
--Yesser session ta3mel fi barcha 7ajet zeyda,pour le moment o93od bel API mte3ha ama ki tetmaken akther mel projet ahbet rigel el oval wel xccdf wa7dek
--Yesser a9ra 3la les erreurs
--Yesser zid verifi enehi approche 5ir:ya ema na3mel set_profile_id lel session w mba3ed ne5ou el politique ya ema na3mel el politique w najouteha
--Yesser chouf kol fonction chniya t3abi bedhabt fi les champs
--Yesser check_engine_plugins testa3mel fi oscap_new_list zeda,chouf kifech tnajem desactiveha ken testa3malhech bich terba7 mémoire
--Yesser zid thabet ken SCE walla moteurs o5rin mezelou mosta3mlin walla le bich ta3ref t5alli flag el engine_plugins walla le
 -Yesser tdhaker bich tchouf 7keyet validation mta3 les fichiers walla sources ma3moula automatiquement walla ngereha ena w zeda chouf 7keyet gestion des erreurs
--Yesser zid chouf 7keyet el lazy loading,sa3at ki utilisateur y7eb ychouf rules kahaw mouch lezem ta3mel load lel oval,tdhaker flags ta3 xccdf_load_all w kol
--Yesser zid a9ra 3al résolution mta3 policies,na3rafech niveau d'abstraction ta3 el API fel 7keya hethi,ama 9rit men 3and el claude ennou ya3mel résolution lel les profils el kol walla ena na5tar enehou walla enehom donc millowel a3mel prototype 3la kol chay mba3ed zid od5el fel details bich tet2aked
-
-
 
 
 -Idees:Interface Graphique pour OpenSCAP+BD+Stats+AI+Ansible

@@ -6,6 +6,7 @@ import { About } from "../pages/About";
 import { ViewProfilePage, EditProfilePage, CreateProfilePage } from "../pages/ProfileRulesPage";
 import { NotFound } from "../pages/NotFound";
 import { ScanRunPage } from "../pages/ScanRunPage";
+import { RemediationRunPage } from "../pages/RemediationRunPage";
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +33,10 @@ export const router = createBrowserRouter([
       {
         path: "/benchmarks/:benchmarkId/profiles/:profileId/scan",
         element: <ScanRunPage />,
+      },
+      {
+        path: "/benchmarks/:benchmarkId/profiles/:profileId/remediate",
+        element: <RemediationRunPage />,
       },
       { path: "*", element: <NotFound /> },
     ],

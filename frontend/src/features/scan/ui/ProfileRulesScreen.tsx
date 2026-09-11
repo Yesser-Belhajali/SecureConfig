@@ -132,10 +132,18 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
       <button
         type="button"
         className="rules-back-button"
-        onClick={() => navigate(`/benchmarks/${benchmarkId}/profiles`)}
+        onClick={() => {
+          if (mode.kind === "edit" && profileId) {
+            navigate(`/benchmarks/${benchmarkId}/profiles/${profileId}/view`, {
+              state: { distributionId: location.state?.distributionId, version: location.state?.version },
+            });
+          } else {
+            navigate(`/benchmarks/${benchmarkId}/profiles`);
+          }
+        }}
       >
         <span aria-hidden="true">←</span>
-        Retour aux profils
+        {mode.kind === "edit" && profileId ? "Retour à la consultation" : "Retour aux profils"}
       </button>
 
       <div className="rules-page">
