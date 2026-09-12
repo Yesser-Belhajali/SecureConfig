@@ -57,18 +57,19 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
   const failedRules = useMemo(() => navigationState?.failedRules ?? [], [navigationState]);
   const { toasts, pushToast, dismissToast } = useToasts();
 
-  const { start, cancel, results, remediationStartIndex, status, liveScore, score, errorMessage } = useRemediationStream(
-    benchmarkId,
-    profileId
-  );
+  const {
+    start,
+    cancel,
+    results,
+    remediationStartIndex,
+    totalRules,
+    score,
+    errorMessage,
+    status,
+  } = useRemediationStream(benchmarkId, profileId);
 
-  // filtre de sélection (avant lancement), réutilisé comme filtre de la liste
-  // "Vérification" une fois lancé — les deux ne sont jamais affichés en même
-  // temps, donc partager cet état est sûr
   const [severityFilter, setSeverityFilter] = useState("all");
   const [search, setSearch] = useState("");
-
-  // filtre indépendant, dédié uniquement à la liste "Remédiation"
   const [remediationSearch, setRemediationSearch] = useState("");
   const [remediationSeverityFilter, setRemediationSeverityFilter] = useState("all");
   const [remediationResultFilter, setRemediationResultFilter] = useState<(typeof REMEDIATION_RESULTS)[number]>("all");
@@ -120,10 +121,7 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
 
   const selectAll = () => setSelectedForRemediation(new Set(filteredSelection.map((r) => r.id)));
   const deselectAll = () => setSelectedForRemediation(new Set());
-
-  const handleCancelSelection = () => {
-    deselectAll();
-  };
+  const handleCancelSelection = () => deselectAll();
 
   const confirmLaunch = () => {
     const ids = Array.from(selectedForRemediation);
@@ -134,12 +132,23 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
     start(ids);
   };
 
+  // découpage basé sur le marqueur explicite remediation_start renvoyé par
+  // le backend, pas sur une position devinée
   const remediationStarted = remediationStartIndex !== null;
-  const verificationPhase = remediationStarted ? results.slice(0, remediationStartIndex) : results;
-  const remediationPhase = remediationStarted ? results.slice(remediationStartIndex) : [];
+  const verificationPhase = remediationStarted ? results.slice(0, remediationStartIndex!) : results;
+  const remediationPhase = remediationStarted ? results.slice(remediationStartIndex!) : [];
 
   const fixedCount = remediationPhase.filter((r) => r.status === "FIXED").length;
   const remediationFailedCount = remediationPhase.length - fixedCount;
+
+  // taux de correction simple, pas une moyenne pondérée par weight : la
+  // remédiation porte sur un ensemble fixe de règles déjà en échec — 40
+  // corrigées sur 50 lancées = 80%, qui augmente au fil des events FIXED.
+  // totalRules vient du backend (event "total") -> plus fiable que
+  // launchedIds.length si jamais une règle envoyée n'était pas traitée
+  const effectiveTotal = totalRules ?? launchedIds.length ?? 1;
+  const liveFixRate = remediationStarted && effectiveTotal > 0 ? (fixedCount / effectiveTotal) * 100 : 0;
+  const displayScore = status === "done" && score !== null ? score : liveFixRate;
 
   const filteredVerification = useMemo(
     () =>
@@ -171,15 +180,6 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
        failedRules.find((r) => r.id === selectedRuleId) ??
        null)
     : null;
-
-  const totalWeight = launchedIds.length > 0 ? launchedIds.length : failedRules.length || 1;
-  const progressFraction = remediationStarted ? remediationPhase.length / totalWeight : 0;
-  const displayScore =
-    status === "done" && score !== null
-      ? score
-      : liveScore !== null
-        ? liveScore * (remediationStarted ? progressFraction : 0)
-        : 0;
 
   const badgeVariant =
     status === "error"
@@ -222,29 +222,9 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
         )}
       </div>
 
-            <div className="scan-page">
+      <div className="scan-page">
         <div className="scan-header-row scan-header-row--plain">
           <h1>Remédiation</h1>
-
-          {results.length > 0 && (
-          <div className="scan-header-summary">
-              <ScanScoreCircle score={displayScore} size={110} strokeWidth={9} />
-              <div className="scan-summary-stats">
-                <div className="scan-summary-stat is-total">
-                  <span className="scan-summary-stat-value">{launchedIds.length}</span>
-                  <span className="scan-summary-stat-label">Total</span>
-                </div>
-                <div className="scan-summary-stat is-pass">
-                  <span className="scan-summary-stat-value">{fixedCount}</span>
-                  <span className="scan-summary-stat-label">Corrigées</span>
-                </div>
-                <div className="scan-summary-stat is-fail">
-                  <span className="scan-summary-stat-value">{remediationFailedCount}</span>
-                  <span className="scan-summary-stat-label">Échouées</span>
-              </div>
-            </div>
-          </div>
-          )}
 
           {launched && status === "running" && (
             <button type="button" className="scan-stop-button" onClick={cancel}>
@@ -351,6 +331,26 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
           </>
         ) : (
           <>
+            {results.length > 0 && (
+              <div className="scan-summary-bar">
+                <ScanScoreCircle score={displayScore} size={128} strokeWidth={10} />
+                <div className="scan-summary-stats">
+                  <div className="scan-summary-stat is-total">
+                    <span className="scan-summary-stat-value">{effectiveTotal}</span>
+                    <span className="scan-summary-stat-label">Total</span>
+                  </div>
+                  <div className="scan-summary-stat is-pass">
+                    <span className="scan-summary-stat-value">{fixedCount}</span>
+                    <span className="scan-summary-stat-label">Corrigées</span>
+                  </div>
+                  <div className="scan-summary-stat is-fail">
+                    <span className="scan-summary-stat-value">{remediationFailedCount}</span>
+                    <span className="scan-summary-stat-label">Échouées</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <section className="scan-controls" aria-label="Filtres de vérification">
               <div className="rules-search">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

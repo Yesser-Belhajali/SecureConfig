@@ -15,6 +15,71 @@
 
 
 // ---------------------------------------------------------------------
+// Registre des remédiations actives — même rôle que celui de scan.c
+// ---------------------------------------------------------------------
+
+struct remediate_registry_node {
+    struct remediate_context *ctx;
+    struct remediate_registry_node *next;
+};
+
+static pthread_mutex_t g_remediate_registry_mutex = PTHREAD_MUTEX_INITIALIZER;
+static struct remediate_registry_node *g_remediate_registry = NULL;
+
+static void remediate_registry_add(struct remediate_context *ctx) {
+    struct remediate_registry_node *node = malloc(sizeof(*node));
+    if (node == NULL) return;
+    node->ctx = ctx;
+    pthread_mutex_lock(&g_remediate_registry_mutex);
+    node->next = g_remediate_registry;
+    g_remediate_registry = node;
+    pthread_mutex_unlock(&g_remediate_registry_mutex);
+}
+
+static void remediate_registry_remove(struct remediate_context *ctx) {
+    pthread_mutex_lock(&g_remediate_registry_mutex);
+    struct remediate_registry_node **cur = &g_remediate_registry;
+    while (*cur != NULL) {
+        if ((*cur)->ctx == ctx) {
+            struct remediate_registry_node *dead = *cur;
+            *cur = dead->next;
+            free(dead);
+            break;
+        }
+        cur = &(*cur)->next;
+    }
+    pthread_mutex_unlock(&g_remediate_registry_mutex);
+}
+
+void remediate_shutdown_all(void) {
+    pthread_mutex_lock(&g_remediate_registry_mutex);
+    for (struct remediate_registry_node *node = g_remediate_registry; node != NULL; node = node->next) {
+        struct remediate_context *ctx = node->ctx;
+
+        pthread_mutex_lock(&ctx->mutex);
+        ctx->cancelled = true;
+        bool need_resume = ctx->suspended;
+        if (need_resume) {
+            ctx->suspended = false;
+        }
+        pthread_mutex_unlock(&ctx->mutex);
+
+        if (need_resume) {
+            MHD_resume_connection(ctx->connection);
+        }
+    }
+    pthread_mutex_unlock(&g_remediate_registry_mutex);
+}
+
+bool remediate_shutdown_pending(void) {
+    pthread_mutex_lock(&g_remediate_registry_mutex);
+    bool pending = (g_remediate_registry != NULL);
+    pthread_mutex_unlock(&g_remediate_registry_mutex);
+    return pending;
+}
+
+
+// ---------------------------------------------------------------------
 // La file : identique à scan_context_push, adaptée au type remediate_context
 // ---------------------------------------------------------------------
 
@@ -87,6 +152,9 @@ static void remediate_context_reserve(struct remediate_context *ctx, int capacit
 static pthread_mutex_t g_remediate_serialize_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void remediate_context_free(struct remediate_context *ctx) {
+
+    remediate_registry_remove(ctx);
+
     for (int i = 0; i < ctx->count; i++) free(ctx->items[i]);
     free(ctx->items);
     free(ctx->pending_title);
@@ -598,6 +666,9 @@ struct remediate_context *remediate_context_new(const char *benchmark_id, const 
     ctx->ref_count = 2;
     strncpy(ctx->benchmark_id, benchmark_id, sizeof(ctx->benchmark_id) - 1);
     strncpy(ctx->profile_id, profile_id, sizeof(ctx->profile_id) - 1);
+
+    remediate_registry_add(ctx);
+
     return ctx;
 }
 
@@ -674,8 +745,12 @@ ssize_t remediate_reader_callback(void *cls, uint64_t pos, char *buf, size_t max
         case REMEDIATE_FAILED:
             pthread_mutex_unlock(&ctx->mutex);
             return MHD_CONTENT_READER_END_WITH_ERROR;
-        case REMEDIATE_RUNNING:
+                case REMEDIATE_RUNNING:
         default:
+            if (ctx->cancelled) {   // <-- ajouté
+                pthread_mutex_unlock(&ctx->mutex);
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+            }
             ctx->suspended = true;
             MHD_suspend_connection(ctx->connection);
             pthread_mutex_unlock(&ctx->mutex);

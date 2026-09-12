@@ -8,7 +8,12 @@ type ScanEvent =
   | { type: "total"; count: number }
   | { type: "done"; score: number };
 
-const SCORABLE_STATUSES = new Set(["PASS", "FAIL", "FIXED"]);
+// statuts exclus du calcul de score, alignés sur xccdf_item_get_flat_score /
+// xccdf_item_get_default_score (openscap, xccdf_policy.c) : ces rôles ne
+// comptent ni au numérateur ni au dénominateur. Tout le reste (PASS, FIXED,
+// FAIL, ERROR, UNKNOWN...) est compté, avec un score de 0 sauf PASS/FIXED
+const UNSCORED_STATUSES = new Set(["NOT_SELECTED", "NOT_APPLICABLE", "INFORMATIONAL", "NOT_CHECKED"]);
+const PASSING_STATUSES = new Set(["PASS", "FIXED"]);
 
 export function useScanStream(benchmarkId: string, profileId: string, autoStart = false) {
   const [inProgressTitle, setInProgressTitle] = useState<string | null>(null);
@@ -75,14 +80,14 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
   }, []);
 
   const liveScore = useMemo(() => {
-    const scorable = results.filter((r) => SCORABLE_STATUSES.has(r.status));
+    const scorable = results.filter((r) => !UNSCORED_STATUSES.has(r.status));
     if (scorable.length === 0) return null;
 
     let weightedPass = 0;
     let weightedTotal = 0;
     for (const r of scorable) {
       weightedTotal += r.weight;
-      if (r.status === "PASS") weightedPass += r.weight;
+      if (PASSING_STATUSES.has(r.status)) weightedPass += r.weight;
     }
     return weightedTotal > 0 ? (weightedPass / weightedTotal) * 100 : null;
   }, [results]);

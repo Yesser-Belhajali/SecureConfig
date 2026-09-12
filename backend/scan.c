@@ -13,6 +13,86 @@
 
 
 
+
+
+
+// ---------------------------------------------------------------------
+// Registre des scans actifs — permet un arrêt propre du serveur (main()) :
+// sans ça, MHD_stop_daemon() abort si des connexions SSE sont encore
+// suspendues (MHD_suspend_connection, utilisé dans scan_reader_callback).
+// ---------------------------------------------------------------------
+
+struct scan_registry_node {
+    struct scan_context *ctx;
+    struct scan_registry_node *next;
+};
+
+static pthread_mutex_t g_scan_registry_mutex = PTHREAD_MUTEX_INITIALIZER;
+static struct scan_registry_node *g_scan_registry = NULL;
+
+static void scan_registry_add(struct scan_context *ctx) {
+    struct scan_registry_node *node = malloc(sizeof(*node));
+    if (node == NULL) return; // best-effort : un scan non enregistré ne sera
+                               // simplement pas annulé au shutdown, ça ne
+                               // fait pas échouer le scan lui-même
+    node->ctx = ctx;
+    pthread_mutex_lock(&g_scan_registry_mutex);
+    node->next = g_scan_registry;
+    g_scan_registry = node;
+    pthread_mutex_unlock(&g_scan_registry_mutex);
+}
+
+static void scan_registry_remove(struct scan_context *ctx) {
+    pthread_mutex_lock(&g_scan_registry_mutex);
+    struct scan_registry_node **cur = &g_scan_registry;
+    while (*cur != NULL) {
+        if ((*cur)->ctx == ctx) {
+            struct scan_registry_node *dead = *cur;
+            *cur = dead->next;
+            free(dead);
+            break;
+        }
+        cur = &(*cur)->next;
+    }
+    pthread_mutex_unlock(&g_scan_registry_mutex);
+}
+
+// appelé depuis main() sur demande d'arrêt : même effet que consumer_finish
+// (cancelled + resume) mais déclenché manuellement pour tous les scans actifs,
+// pas seulement celui dont le client s'est déconnecté
+void scan_shutdown_all(void) {
+    pthread_mutex_lock(&g_scan_registry_mutex);
+    for (struct scan_registry_node *node = g_scan_registry; node != NULL; node = node->next) {
+        struct scan_context *ctx = node->ctx;
+
+        pthread_mutex_lock(&ctx->mutex);
+        ctx->cancelled = true;
+        bool need_resume = ctx->suspended;
+        if (need_resume) {
+            ctx->suspended = false;
+        }
+        pthread_mutex_unlock(&ctx->mutex);
+
+        if (need_resume) {
+            MHD_resume_connection(ctx->connection);
+        }
+    }
+    pthread_mutex_unlock(&g_scan_registry_mutex);
+}
+
+// true tant qu'au moins un scan est encore enregistré (donc pas encore
+// entièrement terminé/libéré) — main() attend que ça devienne false avant
+// d'appeler MHD_stop_daemon
+bool scan_shutdown_pending(void) {
+    pthread_mutex_lock(&g_scan_registry_mutex);
+    bool pending = (g_scan_registry != NULL);
+    pthread_mutex_unlock(&g_scan_registry_mutex);
+    return pending;
+}
+
+
+
+
 // ---------------------------------------------------------------------
 // La file : ajout d'un event, sous mutex, avec croissance dynamique
 // ---------------------------------------------------------------------
@@ -86,6 +166,9 @@ static void scan_context_reserve(struct scan_context *ctx, int capacity) {
 static pthread_mutex_t g_scan_serialize_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void scan_context_free(struct scan_context *ctx) {
+
+    scan_registry_remove(ctx);
+
     for (int i = 0; i < ctx->count; i++) free(ctx->items[i]);
     free(ctx->items);
     free(ctx->pending_title);
@@ -547,6 +630,9 @@ struct scan_context *scan_context_new(const char *benchmark_id, const char *prof
     ctx->ref_count = 2;
     strncpy(ctx->benchmark_id, benchmark_id, sizeof(ctx->benchmark_id) - 1);
     strncpy(ctx->profile_id, profile_id, sizeof(ctx->profile_id) - 1);
+
+    scan_registry_add(ctx);
+
     return ctx;
 }
 
@@ -631,8 +717,12 @@ ssize_t scan_reader_callback(void *cls, uint64_t pos, char *buf, size_t max) {
             return MHD_CONTENT_READER_END_WITH_ERROR;
         case SCAN_RUNNING:
         default:
+            if (ctx->cancelled) {   // <-- ajouté : ne pas re-suspendre après un shutdown forcé
+                pthread_mutex_unlock(&ctx->mutex);
+                return MHD_CONTENT_READER_END_WITH_ERROR;
+            }
             ctx->suspended = true;
-            MHD_suspend_connection(ctx->connection);   // <-- appelé AVANT de déverrouiller
+            MHD_suspend_connection(ctx->connection);
             pthread_mutex_unlock(&ctx->mutex);
             return 0;
     }

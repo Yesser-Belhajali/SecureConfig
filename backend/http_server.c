@@ -733,6 +733,8 @@ static enum MHD_Result handle_request(void *cls,
     return ret;
 }
 
+#include <unistd.h>   // ajouter si pas déjà présent, pour usleep
+
 int main(void) {
     oscap_init();
     struct MHD_Daemon *daemon = MHD_start_daemon(
@@ -751,6 +753,24 @@ int main(void) {
     printf("Serveur démarré sur http://localhost:%d\n", PORT);
     printf("Appuie sur Entrée pour arrêter...\n");
     getchar();
+
+    printf("Arrêt en cours — annulation des scans/remédiations actifs...\n");
+    scan_shutdown_all();
+    remediate_shutdown_all();
+
+    // attend que tout se termine proprement avant MHD_stop_daemon — sinon
+    // abort garanti s'il reste ne serait-ce qu'une connexion suspendue.
+    // Timeout de sécurité : au-delà, on force l'arrêt quand même plutôt que
+    // de bloquer indéfiniment (ex: evaluate() bloqué sur un check OVAL lent)
+    int waited_ms = 0;
+    const int max_wait_ms = 10000;
+    while ((scan_shutdown_pending() || remediate_shutdown_pending()) && waited_ms < max_wait_ms) {
+        usleep(50 * 1000);
+        waited_ms += 50;
+    }
+    if (waited_ms >= max_wait_ms) {
+        fprintf(stderr, "Attention : arrêt forcé malgré des opérations encore actives\n");
+    }
 
     MHD_stop_daemon(daemon);
 
