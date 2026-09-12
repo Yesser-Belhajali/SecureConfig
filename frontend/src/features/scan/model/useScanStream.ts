@@ -1,10 +1,11 @@
 // features/scan/model/useScanStream.ts
 import { useEffect, useMemo, useRef, useState } from "react";
-import { API_BASE_URL, getSelectedRulesForProfile } from "./api";
+import { API_BASE_URL } from "./api";
 import type { RuleResult } from "./types";
 
 type ScanEvent =
   | (RuleResult & { type: "result" })
+  | { type: "total"; count: number }
   | { type: "done"; score: number };
 
 const SCORABLE_STATUSES = new Set(["PASS", "FAIL", "FIXED"]);
@@ -14,12 +15,11 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
   const [results, setResults] = useState<RuleResult[]>([]);
   const [totalRules, setTotalRules] = useState<number | null>(null);
   const [score, setScore] = useState<number | null>(null);
-  const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "running" | "done" | "error" | "cancelled">("idle");
   const esRef = useRef<EventSource | null>(null);
   const startingRef = useRef(false);
-  const mountedRef = useRef(false);
 
-  const start = async () => {
+  const start = () => {
     if (esRef.current || startingRef.current) return;
     startingRef.current = true;
 
@@ -27,18 +27,6 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
     setScore(null);
     setTotalRules(null);
     setStatus("running");
-
-    try {
-      const selectedRules = await getSelectedRulesForProfile(benchmarkId, profileId);
-      setTotalRules(selectedRules.length);
-    } catch {
-      setTotalRules(null);
-    }
-
-    if (!mountedRef.current) {
-      startingRef.current = false;
-      return;
-    }
 
     const url = `${API_BASE_URL}/benchmarks/${benchmarkId}/profiles/${profileId}/scan`;
     const es = new EventSource(url);
@@ -48,7 +36,9 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
     es.onmessage = (e) => {
       const data: ScanEvent = JSON.parse(e.data);
 
-      if (data.type === "result") {
+      if (data.type === "total") {
+        setTotalRules(data.count);
+      } else if (data.type === "result") {
         setInProgressTitle(data.title);
         setResults((prev) => [...prev, data]);
       } else if (data.type === "done") {
@@ -67,11 +57,17 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
     };
   };
 
+  const stop = () => {
+    if (esRef.current) {
+      esRef.current.close();
+      esRef.current = null;
+    }
+    setStatus("cancelled");
+  };
+
   useEffect(() => {
-    mountedRef.current = true;
     if (autoStart) start();
     return () => {
-      mountedRef.current = false;
       esRef.current?.close();
       esRef.current = null;
     };
@@ -91,5 +87,5 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
     return weightedTotal > 0 ? (weightedPass / weightedTotal) * 100 : null;
   }, [results]);
 
-  return { start, inProgressTitle, results, totalRules, score, liveScore, status };
+  return { start, stop, inProgressTitle, results, totalRules, score, liveScore, status };
 }

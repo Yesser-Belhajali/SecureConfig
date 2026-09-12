@@ -462,7 +462,19 @@ static void *producer_main(void *arg) {
 
     int selected_count = xccdf_policy_get_selected_rules_count(ctx->policy);
 
-    scan_context_reserve(ctx, selected_count);
+    // +1 : la reserve couvre aussi l'event "total" poussé juste après, avant
+    // même le premier résultat -> évite un realloc immédiat au premier push
+    scan_context_reserve(ctx, selected_count + 1);
+
+    {
+        cJSON *total_obj = cJSON_CreateObject();
+        cJSON_AddStringToObject(total_obj, "type", "total");
+        cJSON_AddNumberToObject(total_obj, "count", selected_count);
+        char *total_json = cJSON_PrintUnformatted(total_obj);
+        cJSON_Delete(total_obj);
+        if (total_json != NULL) scan_context_push(ctx, total_json);
+    }
+
 
     if (xccdf_session_load_cpe(session) != 0) {
         goto fail;

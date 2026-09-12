@@ -5,24 +5,39 @@ import type { RuleResult } from "./types";
 
 type RemediateEvent =
   | (RuleResult & { type: "result" })
+  | { type: "total"; count: number }
+  | { type: "remediation_start" }
   | { type: "done"; score: number }
   | { type: "error"; message: string };
 
+const SCORABLE_STATUSES = new Set(["PASS", "FAIL", "FIXED"]);
+
 export function useRemediationStream(benchmarkId: string, profileId: string) {
   const [results, setResults] = useState<RuleResult[]>([]);
+  // index dans `results` où la remédiation a réellement commencé côté
+  // backend (marqueur explicite), plutôt que deviné par position via
+  // launchedIds.length — robuste même si evaluate() envoie un nombre
+  // d'events différent du nombre de règles lancées
+  const [remediationStartIndex, setRemediationStartIndex] = useState<number | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "running" | "done" | "error" | "cancelled">("idle");
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(false);
+  const resultsCountRef = useRef(0);
+  const [totalRules, setTotalRules] = useState<number | null>(null);
+
 
   const start = async (ruleIds: string[]) => {
     if (abortRef.current || ruleIds.length === 0) return;
 
     setResults([]);
+    setRemediationStartIndex(null);
     setScore(null);
+    setTotalRules(null);
     setErrorMessage(null);
     setStatus("running");
+    resultsCountRef.current = 0;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -79,7 +94,12 @@ export function useRemediationStream(benchmarkId: string, profileId: string) {
           }
 
           if (data.type === "result") {
+            resultsCountRef.current += 1;
             setResults((prev) => [...prev, data]);
+          } else if (data.type === "total") {          // ajouté
+            setTotalRules(data.count);
+          } else if (data.type === "remediation_start") {
+            setRemediationStartIndex(resultsCountRef.current);
           } else if (data.type === "done") {
             setScore(data.score);
             setStatus("done");
@@ -103,6 +123,7 @@ export function useRemediationStream(benchmarkId: string, profileId: string) {
   const cancel = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    setStatus("cancelled");
   };
 
   useEffect(() => {
@@ -114,25 +135,23 @@ export function useRemediationStream(benchmarkId: string, profileId: string) {
     };
   }, []);
 
-  const SCORABLE_STATUSES = new Set(["PASS", "FAIL", "FIXED"]);
-
   const liveScore = useMemo(() => {
-  if (results.length === 0) return null;
+    if (results.length === 0) return null;
 
-  const latestByRule = new Map<string, RuleResult>();
-  for (const r of results) {
-    latestByRule.set(r.id, r);
-  }
+    const latestByRule = new Map<string, RuleResult>();
+    for (const r of results) {
+      latestByRule.set(r.id, r);
+    }
 
-  let weightedPass = 0;
-  let weightedTotal = 0;
-  for (const r of latestByRule.values()) {
-    if (!SCORABLE_STATUSES.has(r.status) && r.status !== "FIXED") continue;
-    weightedTotal += r.weight;
-    if (r.status === "PASS" || r.status === "FIXED") weightedPass += r.weight;
-  }
-  return weightedTotal > 0 ? (weightedPass / weightedTotal) * 100 : null;
-}, [results]);
+    let weightedPass = 0;
+    let weightedTotal = 0;
+    for (const r of latestByRule.values()) {
+      if (!SCORABLE_STATUSES.has(r.status)) continue;
+      weightedTotal += r.weight;
+      if (r.status === "PASS" || r.status === "FIXED") weightedPass += r.weight;
+    }
+    return weightedTotal > 0 ? (weightedPass / weightedTotal) * 100 : null;
+  }, [results]);
 
-  return { start, cancel, results, score, liveScore, errorMessage, status };
+  return { start, cancel, results, remediationStartIndex, score, liveScore, totalRules, errorMessage, status };
 }

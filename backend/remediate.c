@@ -433,17 +433,24 @@ static void *producer_main(void *arg) {
         goto fail;
     }
 
-    ctx->policy = xccdf_policy_model_get_policy_by_id(policy_model, ctx->profile_id);
+        ctx->policy = xccdf_policy_model_get_policy_by_id(policy_model, ctx->profile_id);
     if (ctx->policy == NULL) {
         goto fail;
     }
 
-    // restreint l'évaluation ET la remédiation aux seules règles choisies —
-    // cf. discussion : dès qu'add_rule est appelé au moins une fois, seules
-    // les règles ajoutées sont évaluées (_user_specified_rule_mode > 0 dans
-    // libopenscap), donc le TestResult produit ne contiendra QUE ces règles,
-    // et xccdf_session_remediate() qui opère sur ce TestResult sera de facto
-    // borné aux mêmes règles, sans logique de filtrage supplémentaire à écrire
+    // total connu à l'avance : c'est le nombre de règles choisies par
+    // l'utilisateur pour la remédiation, pas besoin d'attendre l'évaluation
+    // pour le connaître — contrairement au scan où selected_count vient de
+    // la policy résolue
+    {
+        cJSON *total_obj = cJSON_CreateObject();
+        cJSON_AddStringToObject(total_obj, "type", "total");
+        cJSON_AddNumberToObject(total_obj, "count", ctx->rule_count);
+        char *total_json = cJSON_PrintUnformatted(total_obj);
+        cJSON_Delete(total_obj);
+        if (total_json != NULL) remediate_context_push(ctx, total_json);
+    }
+
     for (int i = 0; i < ctx->rule_count; i++) {
         xccdf_session_add_rule(session, ctx->rule_ids[i]);
     }
@@ -451,7 +458,9 @@ static void *producer_main(void *arg) {
     // *2 : chaque règle peut produire jusqu'à deux events (FAIL pendant
     // evaluate(), puis FIXED/ERROR pendant remediate()) — évite les realloc
     // en cours de remédiation pour le cas le plus fréquent
-    remediate_context_reserve(ctx, ctx->rule_count * 2);
+    // *2 : jusqu'à deux events par règle (FAIL puis FIXED/ERROR) — +1 pour
+    // le marqueur remediation_start
+    remediate_context_reserve(ctx, ctx->rule_count * 2 + 2);
 
     if (xccdf_session_load_cpe(session) != 0) {
         goto fail;
@@ -465,6 +474,18 @@ static void *producer_main(void *arg) {
 
     if (xccdf_session_evaluate(session) != 0) {
         goto fail;
+    }
+
+    // marqueur explicite de transition vérification -> remédiation : le
+    // frontend n'a plus à deviner la coupure par position dans le tableau de
+    // résultats (fragile si jamais evaluate() envoyait un nombre d'events
+    // différent de rule_count, ex: une règle devenue NOT_SELECTED)
+    {
+        cJSON *marker_obj = cJSON_CreateObject();
+        cJSON_AddStringToObject(marker_obj, "type", "remediation_start");
+        char *marker_json = cJSON_PrintUnformatted(marker_obj);
+        cJSON_Delete(marker_obj);
+        if (marker_json != NULL) remediate_context_push(ctx, marker_json);
     }
 
     // les callbacks se redéclenchent ici (xccdf_policy_rule_result_remediate

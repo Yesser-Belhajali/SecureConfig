@@ -1,10 +1,11 @@
 // features/scan/ui/RemediationRunScreen.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useRemediationStream } from "../model/useRemediationStream";
 import ScanResultRow from "./ScanResultRow";
 import RuleDetailPanel from "./RuleDetailPanel";
 import ScanScoreCircle from "./ScanScoreCircle";
+import { useToasts, ToastContainer } from "../../../components/Toast";
 import type { RuleResult } from "../model/types";
 import "./rule-panel.css";
 
@@ -18,6 +19,7 @@ interface RemediationLocationState {
 }
 
 const SEVERITIES = ["all", "high", "medium", "low", "unknown"];
+const REMEDIATION_RESULTS = ["all", "fixed", "failed"] as const;
 
 const badgeStyle: React.CSSProperties = {
   display: "inline-flex",
@@ -29,7 +31,7 @@ const badgeStyle: React.CSSProperties = {
   fontWeight: 600,
 };
 
-function badgeColors(variant: "running" | "done" | "error") {
+function badgeColors(variant: "running" | "done" | "error" | "cancelled") {
   switch (variant) {
     case "running":
       return { background: "#ede9fe", color: "#6d28d9" };
@@ -37,7 +39,15 @@ function badgeColors(variant: "running" | "done" | "error") {
       return { background: "#dcfce7", color: "#15803d" };
     case "error":
       return { background: "#fee2e2", color: "#b91c1c" };
+    case "cancelled":
+      return { background: "#f3f4f6", color: "#4b5563" };
   }
+}
+
+function matchesRemediationResultFilter(status: string, filter: (typeof REMEDIATION_RESULTS)[number]): boolean {
+  if (filter === "all") return true;
+  if (filter === "fixed") return status === "FIXED";
+  return status !== "FIXED";
 }
 
 export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunScreenProps) {
@@ -45,14 +55,24 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
   const location = useLocation();
   const navigationState = location.state as RemediationLocationState | null;
   const failedRules = useMemo(() => navigationState?.failedRules ?? [], [navigationState]);
+  const { toasts, pushToast, dismissToast } = useToasts();
 
-  const { start, results, status, liveScore, score, errorMessage } = useRemediationStream(
+  const { start, cancel, results, remediationStartIndex, status, liveScore, score, errorMessage } = useRemediationStream(
     benchmarkId,
     profileId
   );
 
+  // filtre de sélection (avant lancement), réutilisé comme filtre de la liste
+  // "Vérification" une fois lancé — les deux ne sont jamais affichés en même
+  // temps, donc partager cet état est sûr
   const [severityFilter, setSeverityFilter] = useState("all");
   const [search, setSearch] = useState("");
+
+  // filtre indépendant, dédié uniquement à la liste "Remédiation"
+  const [remediationSearch, setRemediationSearch] = useState("");
+  const [remediationSeverityFilter, setRemediationSeverityFilter] = useState("all");
+  const [remediationResultFilter, setRemediationResultFilter] = useState<(typeof REMEDIATION_RESULTS)[number]>("all");
+
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [selectedForRemediation, setSelectedForRemediation] = useState<Set<string>>(
     () => new Set(failedRules.map((r) => r.id))
@@ -60,6 +80,15 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
   const [launched, setLaunched] = useState(false);
   const [launchedIds, setLaunchedIds] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const prevErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (errorMessage && errorMessage !== prevErrorRef.current) {
+      prevErrorRef.current = errorMessage;
+      pushToast(errorMessage);
+    }
+    if (!errorMessage) prevErrorRef.current = null;
+  }, [errorMessage, pushToast]);
 
   useEffect(() => {
     if (failedRules.length === 0) {
@@ -92,9 +121,6 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
   const selectAll = () => setSelectedForRemediation(new Set(filteredSelection.map((r) => r.id)));
   const deselectAll = () => setSelectedForRemediation(new Set());
 
-  // "Annuler" vide la sélection sans naviguer -> naviguer vers /scan
-  // remonterait ScanRunScreen avec autoStart=true et relancerait tout un
-  // nouveau scan, ce qui n'est pas le comportement voulu ici
   const handleCancelSelection = () => {
     deselectAll();
   };
@@ -108,22 +134,36 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
     start(ids);
   };
 
-  // le flux /remediate envoie d'abord un event par règle sélectionnée (phase
-  // de re-vérification, FAIL attendu), puis un second event par règle (phase
-  // de remédiation, FIXED/ERROR) -- scindé par position dans `results`
-  const verificationPhase = results.slice(0, launchedIds.length);
-  const remediationPhase = results.slice(launchedIds.length);
-  const remediationStarted = remediationPhase.length > 0;
+  const remediationStarted = remediationStartIndex !== null;
+  const verificationPhase = remediationStarted ? results.slice(0, remediationStartIndex) : results;
+  const remediationPhase = remediationStarted ? results.slice(remediationStartIndex) : [];
 
-  const applyFilters = (list: RuleResult[]) =>
-    list.filter((r) => {
-      const matchesSeverity = severityFilter === "all" || r.severity?.toLowerCase() === severityFilter;
-      const matchesSearch = normalizedSearch.length === 0 || r.title.toLowerCase().includes(normalizedSearch);
-      return matchesSeverity && matchesSearch;
-    });
+  const fixedCount = remediationPhase.filter((r) => r.status === "FIXED").length;
+  const remediationFailedCount = remediationPhase.length - fixedCount;
 
-  const filteredVerification = useMemo(() => applyFilters(verificationPhase), [verificationPhase, severityFilter, normalizedSearch]);
-  const filteredRemediation = useMemo(() => applyFilters(remediationPhase), [remediationPhase, severityFilter, normalizedSearch]);
+  const filteredVerification = useMemo(
+    () =>
+      verificationPhase.filter((r) => {
+        const matchesSeverity = severityFilter === "all" || r.severity?.toLowerCase() === severityFilter;
+        const matchesSearch = normalizedSearch.length === 0 || r.title.toLowerCase().includes(normalizedSearch);
+        return matchesSeverity && matchesSearch;
+      }),
+    [verificationPhase, severityFilter, normalizedSearch]
+  );
+
+  const normalizedRemediationSearch = remediationSearch.trim().toLowerCase();
+  const filteredRemediation = useMemo(
+    () =>
+      remediationPhase.filter((r) => {
+        const matchesSeverity =
+          remediationSeverityFilter === "all" || r.severity?.toLowerCase() === remediationSeverityFilter;
+        const matchesResult = matchesRemediationResultFilter(r.status, remediationResultFilter);
+        const matchesSearch =
+          normalizedRemediationSearch.length === 0 || r.title.toLowerCase().includes(normalizedRemediationSearch);
+        return matchesSeverity && matchesResult && matchesSearch;
+      }),
+    [remediationPhase, remediationSeverityFilter, remediationResultFilter, normalizedRemediationSearch]
+  );
 
   const selectedResult = selectedRuleId
     ? (remediationPhase.find((r) => r.id === selectedRuleId) ??
@@ -141,18 +181,29 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
         ? liveScore * (remediationStarted ? progressFraction : 0)
         : 0;
 
-  const badgeVariant = status === "error" ? "error" : status === "done" && remediationStarted ? "done" : "running";
+  const badgeVariant =
+    status === "error"
+      ? "error"
+      : status === "cancelled"
+        ? "cancelled"
+        : status === "done" && remediationStarted
+          ? "done"
+          : "running";
   const badgeLabel =
     status === "error"
       ? "Erreur"
-      : !remediationStarted
-        ? "Scan en cours"
-        : status === "running"
-          ? "Remédiation en cours"
-          : "Remédiation terminée";
+      : status === "cancelled"
+        ? "Remédiation arrêtée"
+        : !remediationStarted
+          ? "Scan en cours"
+          : status === "running"
+            ? "Remédiation en cours"
+            : "Remédiation terminée";
 
   return (
     <>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       <div className="scan-top-row">
         <button
           type="button"
@@ -171,9 +222,35 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
         )}
       </div>
 
-      <div className="scan-page">
+            <div className="scan-page">
         <div className="scan-header-row scan-header-row--plain">
           <h1>Remédiation</h1>
+
+          {results.length > 0 && (
+          <div className="scan-header-summary">
+              <ScanScoreCircle score={displayScore} size={110} strokeWidth={9} />
+              <div className="scan-summary-stats">
+                <div className="scan-summary-stat is-total">
+                  <span className="scan-summary-stat-value">{launchedIds.length}</span>
+                  <span className="scan-summary-stat-label">Total</span>
+                </div>
+                <div className="scan-summary-stat is-pass">
+                  <span className="scan-summary-stat-value">{fixedCount}</span>
+                  <span className="scan-summary-stat-label">Corrigées</span>
+                </div>
+                <div className="scan-summary-stat is-fail">
+                  <span className="scan-summary-stat-value">{remediationFailedCount}</span>
+                  <span className="scan-summary-stat-label">Échouées</span>
+              </div>
+            </div>
+          </div>
+          )}
+
+          {launched && status === "running" && (
+            <button type="button" className="scan-stop-button" onClick={cancel}>
+              Stopper la remédiation
+            </button>
+          )}
         </div>
 
         {!launched ? (
@@ -274,30 +351,7 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
           </>
         ) : (
           <>
-            {results.length > 0 && (
-              <div className="scan-score-top">
-                <div className="scan-score-side is-pass">
-                  <span className="scan-score-side-value">
-                    {remediationPhase.filter((r) => r.status === "FIXED").length}
-                  </span>
-                  <span className="scan-score-side-label">Corrigées</span>
-                </div>
-
-                <div className="scan-score-center">
-                  <ScanScoreCircle score={displayScore} />
-                  <p className="scan-score-top-label">Score de conformité</p>
-                </div>
-
-                <div className="scan-score-side is-fail">
-                  <span className="scan-score-side-value">
-                    {remediationPhase.filter((r) => r.status === "ERROR").length}
-                  </span>
-                  <span className="scan-score-side-label">Échouées</span>
-                </div>
-              </div>
-            )}
-
-            <section className="scan-controls" aria-label="Filtres">
+            <section className="scan-controls" aria-label="Filtres de vérification">
               <div className="rules-search">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="11" cy="11" r="8" />
@@ -308,11 +362,11 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
                   placeholder="Rechercher un résultat par nom..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  aria-label="Rechercher un résultat par nom"
+                  aria-label="Rechercher un résultat de vérification par nom"
                 />
               </div>
 
-              <div className="rules-filters" role="group" aria-label="Filtrer par sévérité">
+              <div className="rules-filters" role="group" aria-label="Filtrer la vérification par sévérité">
                 <span>Sévérité</span>
                 {SEVERITIES.map((sev) => (
                   <button
@@ -355,24 +409,70 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
                   <span>Remédiation</span>
                 </div>
 
+                <section className="scan-controls" aria-label="Filtres de remédiation">
+                  <div className="rules-search">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input
+                      type="text"
+                      placeholder="Rechercher un résultat de remédiation par nom..."
+                      value={remediationSearch}
+                      onChange={(e) => setRemediationSearch(e.target.value)}
+                      aria-label="Rechercher un résultat de remédiation par nom"
+                    />
+                  </div>
+
+                  <div className="rules-filters" role="group" aria-label="Filtrer la remédiation par résultat">
+                    <span>Résultat</span>
+                    {REMEDIATION_RESULTS.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        className={remediationResultFilter === r ? "is-selected" : ""}
+                        onClick={() => setRemediationResultFilter(r)}
+                      >
+                        {r === "all" ? "Tous" : r === "fixed" ? "Corrigé" : "Échoué"}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="rules-filters" role="group" aria-label="Filtrer la remédiation par sévérité">
+                    <span>Sévérité</span>
+                    {SEVERITIES.map((sev) => (
+                      <button
+                        key={sev}
+                        type="button"
+                        className={remediationSeverityFilter === sev ? "is-selected" : ""}
+                        onClick={() => setRemediationSeverityFilter(sev)}
+                      >
+                        {sev === "all" ? "Toutes" : sev}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
                 <section className="scan-remediation-panel" aria-label="Résultats de la remédiation">
                   <div className="scan-result-list">
-                    {filteredRemediation.map((r) => (
-                      <ScanResultRow
-                        key={r.id}
-                        title={r.title}
-                        status={r.status}
-                        severity={r.severity}
-                        isActive={r.id === selectedRuleId}
-                        onClick={() => setSelectedRuleId((c) => (c === r.id ? null : r.id))}
-                      />
-                    ))}
+                    {filteredRemediation.length === 0 ? (
+                      <p className="scan-empty">Aucun résultat ne correspond à ces filtres.</p>
+                    ) : (
+                      filteredRemediation.map((r) => (
+                        <ScanResultRow
+                          key={r.id}
+                          title={r.title}
+                          status={r.status}
+                          severity={r.severity}
+                          isActive={r.id === selectedRuleId}
+                          onClick={() => setSelectedRuleId((c) => (c === r.id ? null : r.id))}
+                        />
+                      ))
+                    )}
                   </div>
                 </section>
               </>
             )}
-
-            {status === "error" && errorMessage && <p className="scan-error-card">{errorMessage}</p>}
           </>
         )}
 

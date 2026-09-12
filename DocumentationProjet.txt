@@ -1269,7 +1269,6 @@ c'est-à-dire data/<benchmark_id>/ssg-<benchmark_id>-tailoring.xml.tmp.12345 (le
 
 
 
-
 -Yesser zid tfa9ed hethda yodhholri el producteur lezmou el oscap_init() mte3ou zeda
 
 /**
@@ -1292,30 +1291,27 @@ OSCAP_API void oscap_init(void);
  */
 OSCAP_API void oscap_cleanup(void);
 
+--------------------------------------------------------------------------------------------12/09/2026-------------------------------------------------------------------------------
 
+-3malt 8altet enni activit el remediation 3al machine mte3i,tfassa5li el GNU w bloquewli el d5oul w kol chay,7atta el vscode ma3adech y7eb ye5dem
+
+
+
+
+-la remediation doit aussi envoyer le nombre de regles total qu'on va scanner,cela nous servira pour le cercle de score,on doit afficher total,fixed et errors ou autre ou failed,donc la remediation envoie le nombre de regles choisisses pour le scan de remediation puie envoie event de commencement de remediation puis envoie le score
+
+-Yesser tfa9ed el requetes elli yetba3thou fel remediation w kol chay
+-Yesser tansech modification ta3 nom du profil wel description
+-Yesser lezmek t7assen el formule ta3 7sebet el pourcentage de conformité netsawer lezmek tadhreb fel weight w ta9sem 3la nombre de rules(tfa9ed openscap kifech 3amlinha)
+-Yesser tfa9ed ki yti7 el serveur est ce que el thread ta3 el remediation wel scan youfew mriglin walla le
 -Yesser fama mochkla ki nwa9ef el scan bi entree MHD y9olli erreur fatale,sala7ha la7keya
-
-
-
--lorsqu'on est sur modifier profil je veux que le bouton de retour me rend vers consulter le profil et pas vers la liste des profils
--le box qui affiche scan en cours/terminé/erreur je veux le rendre plus petit et le mettre en haut a droite de la page
--On a besoin d'une nouvelle page pour la remédiation donc soit le bouton remédier me rend vers une nouvelle page ou je coche la bas et puis quand je lance la remediation le flux vient la bas soit le bouton remedier m affiche sur la page scan et puis quand je valide il m'ouvre la deuxieme page je crois que la deuxieme idee est plus bonne
--le bouton annuler pres de la remediation on doit le deplacer vers corriger la sélection
--la page remédiation on n'a plus besoin d'affiche scan en cours/echec/terminé et la barre de progression elle aussi est non nécessaire
--On doit afficher une barre de filtre similaire a celle du scan mais on cherche pas nom,severité car resultat est toujours fail
--Donc normalement l'appui sur le bouton remédier va transporter les regles en fail vers la nouvelle page de remédiation ou on choisit et tout puis sur cette meme page on nous affiche le flux SSE du scan et apres on nous indique que maintenant c'est la partie de remédiation,nous devons afficher une séparation ou autre et on commence le flux SSE de remédiation
--La barre en bas remédiation terminée je crois qu'on la déplace en haut et elle devient scan en cours/teminé/échec puis elle prend la remédiation
--On ne la déplace pas pres de la barre du header mais juste dessous
-
-
+-Yesser lezem ta3mel event cote backend y9oul lel front wa9tech tebda el remédiation w wa9tech toufa
+-Yesser zid tfa9ed cote backend el code ta3 el remédiation surtout ctx w kol
 -Yesser el front 3andou faza ya9ra liste ta3 el rules elli mahomch mawjoudin fel cas d'erreur al9aha w fassa5ha
 -Yesser zid les LOGS
 -Yesser rod les erreurs spécifiques akther
 -yesser rigel el remediation
 
-
-
--Yesser tdhaker bich tchouf 7keyet validation mta3 les fichiers walla sources ma3moula automatiquement walla ngereha ena w zeda chouf 7keyet gestion des erreurs
 
 
 -Idees:Interface Graphique pour OpenSCAP+BD+Stats+AI+Ansible

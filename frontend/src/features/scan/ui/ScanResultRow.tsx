@@ -22,7 +22,7 @@ const SEVERITY_CLASS: Record<string, string> = {
 };
 
 export default function ScanResultRow({ title, status, severity, isActive, onClick }: ScanResultRowProps) {
-  const severityClass = severity ? (SEVERITY_CLASS[severity.toLowerCase()] ?? "severity-unknown") : null;
+  const severityClass = severity ? (SEVERITY_CLASS[severity.toLowerCase()] ?? "severity-unknown") : "severity-unknown";
 
   return (
     <div
@@ -40,8 +40,14 @@ export default function ScanResultRow({ title, status, severity, isActive, onCli
       <div className="rule-row-main">
         <span className={`rule-severity-dot scan-result-dot ${statusClass(status)}`} aria-hidden="true" />
         <span className="rule-title scan-result-title">{title}</span>
-        {severityClass && <span className={`rule-severity ${severityClass}`}>{severity}</span>}
-        <span className={`rule-severity scan-result-status ${statusClass(status)}`}>{status}</span>
+        <span className="scan-result-badges">
+          <span className={`rule-severity scan-result-severity-slot ${severityClass}`}>
+            {severity ?? "—"}
+          </span>
+          <span className={`rule-severity scan-result-status scan-result-status-slot ${statusClass(status)}`}>
+            {status}
+          </span>
+        </span>
       </div>
     </div>
   );

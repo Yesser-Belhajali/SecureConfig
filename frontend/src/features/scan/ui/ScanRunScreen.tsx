@@ -1,10 +1,11 @@
 // features/scan/ui/ScanRunScreen.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useScanStream } from "../model/useScanStream";
 import ScanResultRow from "./ScanResultRow";
 import RuleDetailPanel from "./RuleDetailPanel";
 import ScanScoreCircle from "./ScanScoreCircle";
+import { useToasts, ToastContainer } from "../../../components/Toast";
 import "./rule-panel.css";
 
 interface ScanRunScreenProps {
@@ -30,7 +31,7 @@ const badgeStyle: React.CSSProperties = {
   fontWeight: 600,
 };
 
-function badgeColors(variant: "running" | "done" | "error") {
+function badgeColors(variant: "running" | "done" | "error" | "cancelled") {
   switch (variant) {
     case "running":
       return { background: "#ede9fe", color: "#6d28d9" };
@@ -38,6 +39,8 @@ function badgeColors(variant: "running" | "done" | "error") {
       return { background: "#dcfce7", color: "#15803d" };
     case "error":
       return { background: "#fee2e2", color: "#b91c1c" };
+    case "cancelled":
+      return { background: "#f3f4f6", color: "#4b5563" };
   }
 }
 
@@ -52,8 +55,9 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const navigationState = location.state as ScanRunLocationState | null;
+  const { toasts, pushToast, dismissToast } = useToasts();
 
-  const { inProgressTitle, results, totalRules, score, liveScore, status } = useScanStream(
+  const { start, stop, inProgressTitle, results, totalRules, score, liveScore, status } = useScanStream(
     benchmarkId,
     profileId,
     true
@@ -64,13 +68,20 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
   const [search, setSearch] = useState("");
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
 
+  const prevErrorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (status === "error" && prevErrorRef.current !== "shown") {
+      prevErrorRef.current = "shown";
+      pushToast("Une erreur est survenue pendant le scan.");
+    }
+    if (status !== "error") prevErrorRef.current = null;
+  }, [status, pushToast]);
+
   const passCount = results.filter((r) => r.status === "PASS").length;
   const failCount = results.filter((r) => r.status === "FAIL").length;
   const evaluatedCount = results.length;
+  const otherCount = evaluatedCount - passCount - failCount;
 
-  // pondère le score en direct par la proportion du profil déjà couverte -
-  // sinon 8/10 règles évaluées affiche "80%" alors que 638 autres règles
-  // du profil n'ont même pas encore été vérifiées
   const progressFraction = totalRules ? evaluatedCount / totalRules : 0;
   const displayScore =
     status === "done" && score !== null
@@ -107,11 +118,21 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
     });
   };
 
-  const badgeVariant = status === "error" ? "error" : status === "done" ? "done" : "running";
-  const badgeLabel = status === "error" ? "Erreur" : status === "done" ? "Scan terminé" : "Scan en cours";
+  const badgeVariant =
+    status === "error" ? "error" : status === "cancelled" ? "cancelled" : status === "done" ? "done" : "running";
+  const badgeLabel =
+    status === "error"
+      ? "Erreur"
+      : status === "cancelled"
+        ? "Scan arrêté"
+        : status === "done"
+          ? "Scan terminé"
+          : "Scan en cours";
 
   return (
     <>
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
       <div className="scan-top-row">
         <button
           type="button"
@@ -141,31 +162,43 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
         <div className="scan-header-row scan-header-row--plain">
           <h1>Résultats</h1>
 
-          {status === "done" && failCount > 0 && (
-            <button type="button" className="scan-remediate-trigger" onClick={goToRemediation}>
-              Remédier
-            </button>
+          {evaluatedCount > 0 && (status === "running" || status === "done" || status === "cancelled") && (
+            <div className="scan-header-summary">
+              <ScanScoreCircle score={displayScore} size={110} strokeWidth={9} />
+              <div className="scan-summary-stats">
+                <div className="scan-summary-stat is-total">
+                  <span className="scan-summary-stat-value">{totalRules ?? "—"}</span>
+                  <span className="scan-summary-stat-label">Total</span>
+                </div>
+                <div className="scan-summary-stat is-pass">
+                  <span className="scan-summary-stat-value">{passCount}</span>
+                  <span className="scan-summary-stat-label">Réussies</span>
+                </div>
+                <div className="scan-summary-stat is-fail">
+                  <span className="scan-summary-stat-value">{failCount}</span>
+                  <span className="scan-summary-stat-label">Échouées</span>
+                </div>
+                <div className="scan-summary-stat is-other">
+                  <span className="scan-summary-stat-value">{otherCount}</span>
+                  <span className="scan-summary-stat-label">Autres</span>
+                </div>
+              </div>
+            </div>
           )}
-        </div>
 
-        {(status === "running" || status === "done") && evaluatedCount > 0 && (
-          <div className="scan-score-top">
-            <div className="scan-score-side is-pass">
-              <span className="scan-score-side-value">{passCount}</span>
-              <span className="scan-score-side-label">Réussies</span>
-            </div>
-
-            <div className="scan-score-center">
-              <ScanScoreCircle score={displayScore} />
-              <p className="scan-score-top-label">Score de conformité</p>
-            </div>
-
-            <div className="scan-score-side is-fail">
-              <span className="scan-score-side-value">{failCount}</span>
-              <span className="scan-score-side-label">Échouées</span>
-            </div>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            {status === "running" && (
+              <button type="button" className="scan-stop-button" onClick={stop}>
+                Stopper le scan
+              </button>
+            )}
+            {status === "done" && failCount > 0 && (
+              <button type="button" className="scan-remediate-trigger" onClick={goToRemediation}>
+                Remédier
+              </button>
+            )}
           </div>
-        )}
+        </div>
 
         <section className="scan-controls" aria-label="Progression et filtres du scan">
           <div className="scan-progress-track" aria-hidden="true">
@@ -190,7 +223,7 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
             </div>
           )}
 
-          {status === "done" && (
+          {(status === "done" || status === "cancelled") && (
             <>
               <div className="rules-search">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -253,8 +286,6 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
         </section>
 
         <RuleDetailPanel rule={selectedResult} onClose={() => setSelectedRuleId(null)} />
-
-        {status === "error" && <p className="scan-error-card">Une erreur est survenue pendant le scan.</p>}
       </div>
     </>
   );

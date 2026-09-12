@@ -1088,3 +1088,102 @@
 .scan-top-row .scan-back-button {
   margin: 0;
 }
+
+
+/* alignement colonnes sévérité/statut */
+.scan-result-badges {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.scan-result-severity-slot {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 80px;
+  text-align: center;
+}
+.scan-result-status-slot {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 70px;
+  text-align: center;
+}
+
+.scan-summary-stat {
+  display: flex;
+  flex-direction: column;
+}
+.scan-summary-stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.scan-summary-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.scan-summary-stat.is-pass .scan-summary-stat-value { color: #15803d; }
+.scan-summary-stat.is-fail .scan-summary-stat-value { color: #b91c1c; }
+.scan-summary-stat.is-other .scan-summary-stat-value { color: #a16207; }
+.scan-summary-stat.is-total .scan-summary-stat-value { color: #374151; }
+
+
+.scan-stop-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  flex-shrink: 0;
+  padding: .65rem 1.15rem;
+  border: 1.5px solid #dc2626;
+  border-radius: .65rem;
+  background: #ffffff;
+  color: #dc2626;
+  cursor: pointer;
+  font: 600 .85rem Inter, sans-serif;
+  transition: transform .18s ease, background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.scan-stop-button:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 14px 28px rgba(220,38,38,.32);
+}
+.scan-stop-button:focus-visible { outline: 2px solid #dc2626; outline-offset: 3px; }
+
+
+.scan-header-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.scan-summary-stats {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.scan-summary-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.scan-summary-stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.scan-summary-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.scan-summary-stat.is-pass .scan-summary-stat-value { color: #15803d; }
+.scan-summary-stat.is-fail .scan-summary-stat-value { color: #b91c1c; }
+.scan-summary-stat.is-other .scan-summary-stat-value { color: #a16207; }
+.scan-summary-stat.is-total .scan-summary-stat-value { color: #374151; }
