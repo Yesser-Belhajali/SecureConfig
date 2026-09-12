@@ -501,10 +501,19 @@ static void *producer_main(void *arg) {
         goto fail;
     }
 
-        ctx->policy = xccdf_policy_model_get_policy_by_id(policy_model, ctx->profile_id);
+    ctx->policy = xccdf_policy_model_get_policy_by_id(policy_model, ctx->profile_id);
     if (ctx->policy == NULL) {
         goto fail;
     }
+
+    // *2 : chaque règle peut produire jusqu'à deux events (FAIL pendant
+    // evaluate(), puis FIXED/ERROR pendant remediate()) ; +2 pour l'event
+    // "total" et le marqueur "remediation_start". DOIT être appelé avant
+    // le moindre remediate_context_push : reserve() remplace ctx->items par
+    // un tableau neuf sans reporter les entrées déjà poussées ni remettre
+    // ctx->count à 0, ce qui produirait des cases NULL lues comme des items
+    // valides côté remediate_reader_callback (strlen(NULL) -> segfault).
+    remediate_context_reserve(ctx, ctx->rule_count * 2 + 2);
 
     // total connu à l'avance : c'est le nombre de règles choisies par
     // l'utilisateur pour la remédiation, pas besoin d'attendre l'évaluation
@@ -522,13 +531,6 @@ static void *producer_main(void *arg) {
     for (int i = 0; i < ctx->rule_count; i++) {
         xccdf_session_add_rule(session, ctx->rule_ids[i]);
     }
-
-    // *2 : chaque règle peut produire jusqu'à deux events (FAIL pendant
-    // evaluate(), puis FIXED/ERROR pendant remediate()) — évite les realloc
-    // en cours de remédiation pour le cas le plus fréquent
-    // *2 : jusqu'à deux events par règle (FAIL puis FIXED/ERROR) — +1 pour
-    // le marqueur remediation_start
-    remediate_context_reserve(ctx, ctx->rule_count * 2 + 2);
 
     if (xccdf_session_load_cpe(session) != 0) {
         goto fail;

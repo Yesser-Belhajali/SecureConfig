@@ -1300,9 +1300,8 @@ OSCAP_API void oscap_cleanup(void);
 
 -la remediation doit aussi envoyer le nombre de regles total qu'on va scanner,cela nous servira pour le cercle de score,on doit afficher total,fixed et errors ou autre ou failed,donc la remediation envoie le nombre de regles choisisses pour le scan de remediation puie envoie event de commencement de remediation puis envoie le score
 
-
-
--Yesser awel 7aja ta3malha ennek trigel el MHD
+-Kol mochkla fel backend t5arrajli akel pop-up Network Error
+-Yesser fama Seg Fault fel remédiation
 -Yesser tfa9ed el requetes elli yetba3thou fel remediation w kol chay
 -Yesser tansech modification ta3 nom du profil wel description
 -Yesser lezmek t7assen el formule ta3 7sebet el pourcentage de conformité netsawer lezmek tadhreb fel weight w ta9sem 3la nombre de rules(tfa9ed openscap kifech 3amlinha)
