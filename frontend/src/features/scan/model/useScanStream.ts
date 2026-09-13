@@ -1,17 +1,14 @@
 // features/scan/model/useScanStream.ts
 import { useEffect, useMemo, useRef, useState } from "react";
-import { API_BASE_URL } from "./api";
+import { API_BASE_URL, cancelActiveOperation } from "./api"; // 1. AJOUT DE L'IMPORT
 import type { RuleResult } from "./types";
 
 type ScanEvent =
   | (RuleResult & { type: "result" })
   | { type: "total"; count: number }
-  | { type: "done"; score: number };
+  | { type: "done"; score: number }
+  | { type: "error"; message: string };
 
-// statuts exclus du calcul de score, alignés sur xccdf_item_get_flat_score /
-// xccdf_item_get_default_score (openscap, xccdf_policy.c) : ces rôles ne
-// comptent ni au numérateur ni au dénominateur. Tout le reste (PASS, FIXED,
-// FAIL, ERROR, UNKNOWN...) est compté, avec un score de 0 sauf PASS/FIXED
 const UNSCORED_STATUSES = new Set(["NOT_SELECTED", "NOT_APPLICABLE", "INFORMATIONAL", "NOT_CHECKED"]);
 const PASSING_STATUSES = new Set(["PASS", "FIXED"]);
 
@@ -20,6 +17,7 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
   const [results, setResults] = useState<RuleResult[]>([]);
   const [totalRules, setTotalRules] = useState<number | null>(null);
   const [score, setScore] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error" | "cancelled">("idle");
   const esRef = useRef<EventSource | null>(null);
   const startingRef = useRef(false);
@@ -32,6 +30,7 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
     setScore(null);
     setTotalRules(null);
     setStatus("running");
+    setErrorMessage(null); // Nettoyage de l'erreur au démarrage
 
     const url = `${API_BASE_URL}/benchmarks/${benchmarkId}/profiles/${profileId}/scan`;
     const es = new EventSource(url);
@@ -46,6 +45,11 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
       } else if (data.type === "result") {
         setInProgressTitle(data.title);
         setResults((prev) => [...prev, data]);
+      } else if (data.type === "error") {
+        setErrorMessage(data.message);
+        setStatus("error");
+        es.close();
+        esRef.current = null;
       } else if (data.type === "done") {
         setScore(data.score);
         setStatus("done");
@@ -63,6 +67,7 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
   };
 
   const stop = () => {
+    cancelActiveOperation(); // 2. APPEL À L'API
     if (esRef.current) {
       esRef.current.close();
       esRef.current = null;
@@ -92,5 +97,6 @@ export function useScanStream(benchmarkId: string, profileId: string, autoStart 
     return weightedTotal > 0 ? (weightedPass / weightedTotal) * 100 : null;
   }, [results]);
 
-  return { start, stop, inProgressTitle, results, totalRules, score, liveScore, status };
+  // 3. AJOUT DE errorMessage DANS LE RETURN
+  return { start, stop, inProgressTitle, results, totalRules, score, liveScore, status, errorMessage }; 
 }

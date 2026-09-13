@@ -79,9 +79,10 @@ int validate_remediation_request(const char *benchmark_id, const char *profile_i
                                    const char **rule_ids, int rule_count,
                                    char *out_invalid_id, size_t out_invalid_id_size);
 
+                                   
+void remediate_cancel(struct remediate_context *ctx);
 
-void remediate_shutdown_all(void);
-bool remediate_shutdown_pending(void);
+void remediate_set_dry_run(bool enabled);
 
 
 #endif

@@ -84,3 +84,17 @@ export async function updateProfile(
   });
   return handleResponse<{ updated: boolean }>(response);
 }
+
+
+export function cancelActiveOperationOnUnload(): void {
+  const url = `${API_BASE_URL}/operations/current`;
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(url); // POST implicite, seule méthode supportée par sendBeacon
+  } else {
+    fetch(url, { method: "POST", keepalive: true }).catch(() => {});
+  }
+}
+
+export async function cancelActiveOperation(): Promise<void> {
+  await fetch(`${API_BASE_URL}/operations/current`, { method: "DELETE" }).catch(() => {});
+}

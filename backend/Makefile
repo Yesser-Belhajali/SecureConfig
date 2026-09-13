@@ -39,7 +39,7 @@ MEMTEST_LDFLAGS = -L/usr/local/lib \
 # Sources
 # ============================================================
 
-COMMON_SRCS = scap_service.c json_utils.c
+COMMON_SRCS = scap_service.c json_utils.c active_operation.c
 
 
 # ============================================================

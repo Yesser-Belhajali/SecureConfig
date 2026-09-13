@@ -11,71 +11,28 @@
 #include <oscap_error.h>
 #include "remediate.h"
 #include "scap_service.h"
+#include "active_operation.h"
 
 
 
-// ---------------------------------------------------------------------
-// Registre des remédiations actives — même rôle que celui de scan.c
-// ---------------------------------------------------------------------
 
-struct remediate_registry_node {
-    struct remediate_context *ctx;
-    struct remediate_registry_node *next;
-};
-
-static pthread_mutex_t g_remediate_registry_mutex = PTHREAD_MUTEX_INITIALIZER;
-static struct remediate_registry_node *g_remediate_registry = NULL;
-
-static void remediate_registry_add(struct remediate_context *ctx) {
-    struct remediate_registry_node *node = malloc(sizeof(*node));
-    if (node == NULL) return;
-    node->ctx = ctx;
-    pthread_mutex_lock(&g_remediate_registry_mutex);
-    node->next = g_remediate_registry;
-    g_remediate_registry = node;
-    pthread_mutex_unlock(&g_remediate_registry_mutex);
+void remediate_cancel(struct remediate_context *ctx) {
+    if (ctx == NULL) return;
+    pthread_mutex_lock(&ctx->mutex);
+    ctx->cancelled = true;
+    bool need_resume = ctx->suspended;
+    if (need_resume) ctx->suspended = false;
+    pthread_mutex_unlock(&ctx->mutex);
+    if (need_resume) MHD_resume_connection(ctx->connection);
 }
 
-static void remediate_registry_remove(struct remediate_context *ctx) {
-    pthread_mutex_lock(&g_remediate_registry_mutex);
-    struct remediate_registry_node **cur = &g_remediate_registry;
-    while (*cur != NULL) {
-        if ((*cur)->ctx == ctx) {
-            struct remediate_registry_node *dead = *cur;
-            *cur = dead->next;
-            free(dead);
-            break;
-        }
-        cur = &(*cur)->next;
-    }
-    pthread_mutex_unlock(&g_remediate_registry_mutex);
-}
+// activé une seule fois au démarrage (main), jamais modifié après le
+// lancement du daemon MHD -> aucun verrou nécessaire, lecture simple depuis
+// les threads producteurs
+static bool g_dry_run_remediation = false;
 
-void remediate_shutdown_all(void) {
-    pthread_mutex_lock(&g_remediate_registry_mutex);
-    for (struct remediate_registry_node *node = g_remediate_registry; node != NULL; node = node->next) {
-        struct remediate_context *ctx = node->ctx;
-
-        pthread_mutex_lock(&ctx->mutex);
-        ctx->cancelled = true;
-        bool need_resume = ctx->suspended;
-        if (need_resume) {
-            ctx->suspended = false;
-        }
-        pthread_mutex_unlock(&ctx->mutex);
-
-        if (need_resume) {
-            MHD_resume_connection(ctx->connection);
-        }
-    }
-    pthread_mutex_unlock(&g_remediate_registry_mutex);
-}
-
-bool remediate_shutdown_pending(void) {
-    pthread_mutex_lock(&g_remediate_registry_mutex);
-    bool pending = (g_remediate_registry != NULL);
-    pthread_mutex_unlock(&g_remediate_registry_mutex);
-    return pending;
+void remediate_set_dry_run(bool enabled) {
+    g_dry_run_remediation = enabled;
 }
 
 
@@ -153,7 +110,7 @@ static pthread_mutex_t g_remediate_serialize_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void remediate_context_free(struct remediate_context *ctx) {
 
-    remediate_registry_remove(ctx);
+    active_operation_release(ctx);
 
     for (int i = 0; i < ctx->count; i++) free(ctx->items[i]);
     free(ctx->items);
@@ -562,13 +519,87 @@ static void *producer_main(void *arg) {
     // appelle XCCDF_POLICY_OUTCB_START/END exactement comme l'évaluation
     // normale) : un second event SSE "FIXED"/"ERROR" par règle corrigée,
     // en plus du "FAIL" déjà envoyé par evaluate() ci-dessus
-    if (xccdf_session_remediate(session) != 0) {
+    /*if (xccdf_session_remediate(session) != 0) {
         goto fail;
+    }*/
+
+
+    if (g_dry_run_remediation) {
+        // DRY-RUN : reproduit fidèlement la forme d'un event "FIXED" réel
+        // (mêmes helpers que remediate_output_callback : build_fixes_array,
+        // build_warnings_array, etc.) sans jamais appeler
+        // xccdf_session_remediate() — c'est la SEULE fonction de tout ce
+        // fichier qui exécute effectivement des commandes sur la machine.
+        // L'évaluation (evaluate() ci-dessus) reste réelle et en lecture
+        // seule : la phase "Vérification" côté frontend reflète l'état
+        // actuel véritable du système, seule la correction est simulée.
+        for (int i = 0; i < ctx->rule_count; i++) {
+
+            // vérifie l'annulation AVANT tout travail sur cette itération —
+            // sans ça, un cancel pendant le dry-run laisse cette boucle tourner
+            // jusqu'au bout (rule_count * 3s) avec g_remediate_serialize_mutex
+            // toujours verrouillé, bloquant toute autre remédiation en attente
+            pthread_mutex_lock(&ctx->mutex);
+            bool cancelled = ctx->cancelled;
+            pthread_mutex_unlock(&ctx->mutex);
+            if (cancelled) {
+                break;
+            }
+
+            struct xccdf_item *item = xccdf_benchmark_get_item(benchmark, ctx->rule_ids[i]);
+            if (item == NULL || xccdf_item_get_type(item) != XCCDF_RULE) {
+                continue;
+            }
+            struct xccdf_rule *rule = (struct xccdf_rule *)item;
+
+            char *title = xccdf_policy_get_readable_item_title(ctx->policy, item, NULL);
+            char *description = xccdf_policy_get_readable_item_description(ctx->policy, item, NULL);
+            char *rationale = xccdf_policy_get_readable_item_rationale(ctx->policy, item, NULL);
+            const char *question = get_rule_question(rule);
+
+            cJSON *obj = cJSON_CreateObject();
+            cJSON_AddStringToObject(obj, "type", "result");
+            cJSON_AddStringToObject(obj, "id", ctx->rule_ids[i]);
+            cJSON_AddStringToObject(obj, "title", title ? title : "");
+            cJSON_AddStringToObject(obj, "description", description ? description : "");
+            cJSON_AddStringToObject(obj, "rationale", rationale ? rationale : "");
+            cJSON_AddStringToObject(obj, "question", question ? question : "");
+            cJSON_AddStringToObject(obj, "status", "FIXED");
+            cJSON_AddStringToObject(obj, "severity", severity_to_str(xccdf_rule_get_severity(rule)));
+            cJSON_AddNumberToObject(obj, "weight", (double)xccdf_item_get_weight(item));
+            cJSON_AddItemToObject(obj, "fixes", build_fixes_array(rule));
+            cJSON_AddItemToObject(obj, "warnings", build_warnings_array(rule));
+            cJSON_AddItemToObject(obj, "platforms", build_platforms_array(rule));
+            cJSON_AddItemToObject(obj, "checks", build_checks_array(rule));
+            cJSON_AddItemToObject(obj, "references", build_references_array(rule));
+
+            free(title);
+            free(description);
+            free(rationale);
+
+            char *json = cJSON_PrintUnformatted(obj);
+            cJSON_Delete(obj);
+            if (json != NULL) remediate_context_push(ctx, json);
+            sleep(3);
+        }
+    } else {
+        // les callbacks se redéclenchent ici (xccdf_policy_rule_result_remediate
+        // appelle XCCDF_POLICY_OUTCB_START/END exactement comme l'évaluation
+        // normale) : un second event SSE "FIXED"/"ERROR" par règle corrigée,
+        // en plus du "FAIL" déjà envoyé par evaluate() ci-dessus
+        if (xccdf_session_remediate(session) != 0) {
+            goto fail;
+        }
     }
 
     // appelé APRÈS remediate (qui recalcule le score en interne via
     // xccdf_policy_recalculate_score) — reflète donc l'état post-remédiation
-    double score = xccdf_session_get_base_score(session);
+    //double score = xccdf_session_get_base_score(session);
+
+    // en dry-run, remediate() n'a jamais tourné : le score interne d'openscap
+    // refléterait encore l'état AVANT correction (trompeur, puisqu'on simule
+    // un succès total) -> valeur forcée
+    double score = g_dry_run_remediation ? 100.0 : xccdf_session_get_base_score(session);
 
     xccdf_session_free(session);
     pthread_mutex_unlock(&g_remediate_serialize_mutex);
@@ -668,8 +699,6 @@ struct remediate_context *remediate_context_new(const char *benchmark_id, const 
     ctx->ref_count = 2;
     strncpy(ctx->benchmark_id, benchmark_id, sizeof(ctx->benchmark_id) - 1);
     strncpy(ctx->profile_id, profile_id, sizeof(ctx->profile_id) - 1);
-
-    remediate_registry_add(ctx);
 
     return ctx;
 }

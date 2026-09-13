@@ -1295,24 +1295,12 @@ OSCAP_API void oscap_cleanup(void);
 
 -3malt 8altet enni activit el remediation 3al machine mte3i,tfassa5li el GNU w bloquewli el d5oul w kol chay,7atta el vscode ma3adech y7eb ye5dem
 
-
-
-
--la remediation doit aussi envoyer le nombre de regles total qu'on va scanner,cela nous servira pour le cercle de score,on doit afficher total,fixed et errors ou autre ou failed,donc la remediation envoie le nombre de regles choisisses pour le scan de remediation puie envoie event de commencement de remediation puis envoie le score
-
--Kol mochkla fel backend t5arrajli akel pop-up Network Error
--Yesser fama Seg Fault fel remédiation
--Yesser tfa9ed el requetes elli yetba3thou fel remediation w kol chay
--Yesser tansech modification ta3 nom du profil wel description
--Yesser lezmek t7assen el formule ta3 7sebet el pourcentage de conformité netsawer lezmek tadhreb fel weight w ta9sem 3la nombre de rules(tfa9ed openscap kifech 3amlinha)
--Yesser tfa9ed ki yti7 el serveur est ce que el thread ta3 el remediation wel scan youfew mriglin walla le
--Yesser fama mochkla ki nwa9ef el scan bi entree MHD y9olli erreur fatale,sala7ha la7keya
--Yesser lezem ta3mel event cote backend y9oul lel front wa9tech tebda el remédiation w wa9tech toufa
+-Yesser rod el frontend yaffichilek rahou fama scan walla remediation deja en cours
+-Yesser chouf ken t7eb el remediation felle5er taffichilek nouveau score de conformité,aaa ey w rod el frontend yconsommeha
+-Yesser tfa9ed ken fama 7aja fel CSS m3awda 2 marat walla ken element dra kifech el mouhem tfa9ed el frontend
+-Yesser rod el remediation ki n9oss 3leha el backend t5arrajli akel pop-up mel fou9 une erreur est survenue pendant le scan
 -Yesser zid tfa9ed cote backend el code ta3 el remédiation surtout ctx w kol
 -Yesser el front 3andou faza ya9ra liste ta3 el rules elli mahomch mawjoudin fel cas d'erreur al9aha w fassa5ha
--Yesser zid les LOGS
--Yesser rod les erreurs spécifiques akther
--yesser rigel el remediation
 
 
 

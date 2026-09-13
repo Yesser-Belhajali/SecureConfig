@@ -1,6 +1,6 @@
 // features/scan/model/useRemediationStream.ts
 import { useEffect, useMemo, useRef, useState } from "react";
-import { API_BASE_URL } from "./api";
+import { API_BASE_URL, cancelActiveOperation } from "./api";
 import type { RuleResult } from "./types";
 
 type RemediateEvent =
@@ -121,6 +121,7 @@ export function useRemediationStream(benchmarkId: string, profileId: string) {
   };
 
   const cancel = () => {
+    cancelActiveOperation();
     abortRef.current?.abort();
     abortRef.current = null;
     setStatus("cancelled");

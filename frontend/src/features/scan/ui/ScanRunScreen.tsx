@@ -1,5 +1,6 @@
 // features/scan/ui/ScanRunScreen.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cancelActiveOperationOnUnload } from "../model/api";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useScanStream } from "../model/useScanStream";
 import ScanResultRow from "./ScanResultRow";
@@ -77,6 +78,13 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
     if (status !== "error") prevErrorRef.current = null;
   }, [status, pushToast]);
 
+  useEffect(() => {
+  if (status !== "running") return;
+  const handlePageHide = () => cancelActiveOperationOnUnload();
+  window.addEventListener("pagehide", handlePageHide);
+  return () => window.removeEventListener("pagehide", handlePageHide);
+}, [status]);
+
   const passCount = results.filter((r) => r.status === "PASS").length;
   const failCount = results.filter((r) => r.status === "FAIL").length;
   const evaluatedCount = results.length;
@@ -129,6 +137,8 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
           ? "Scan terminé"
           : "Scan en cours";
 
+  const showSummary = evaluatedCount > 0 && (status === "running" || status === "done" || status === "cancelled");
+
   return (
     <>
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
@@ -159,34 +169,45 @@ export function ScanRunScreen({ benchmarkId, profileId }: ScanRunScreenProps) {
       </div>
 
       <div className="scan-page">
-        <div className="scan-header-row scan-header-row--plain">
-          <h1>Résultats</h1>
+        <h1 className="scan-page-title">Scan</h1>
 
-          {evaluatedCount > 0 && (status === "running" || status === "done" || status === "cancelled") && (
-            <div className="scan-header-summary">
-              <ScanScoreCircle score={displayScore} size={110} strokeWidth={9} />
-              <div className="scan-summary-stats">
-                <div className="scan-summary-stat is-total">
-                  <span className="scan-summary-stat-value">{totalRules ?? "—"}</span>
-                  <span className="scan-summary-stat-label">Total</span>
-                </div>
-                <div className="scan-summary-stat is-pass">
-                  <span className="scan-summary-stat-value">{passCount}</span>
-                  <span className="scan-summary-stat-label">Réussies</span>
-                </div>
-                <div className="scan-summary-stat is-fail">
-                  <span className="scan-summary-stat-value">{failCount}</span>
-                  <span className="scan-summary-stat-label">Échouées</span>
-                </div>
-                <div className="scan-summary-stat is-other">
-                  <span className="scan-summary-stat-value">{otherCount}</span>
-                  <span className="scan-summary-stat-label">Autres</span>
+        {/* les 3 wrappers de slot sont TOUJOURS rendus, même vides — le
+            slot de gauche porte maintenant "Résultats" ; il équilibre le
+            slot d'actions à droite en largeur (même grid 1fr auto 1fr) pour
+            que le score au centre ne bouge jamais, peu importe ce qui
+            s'affiche à droite. */}
+        <div className="scan-header-row scan-header-row--plain">
+          <div className="scan-header-title-slot">
+            <h2 className="scan-header-title">Résultats</h2>
+          </div>
+
+          <div className="scan-header-summary-slot">
+            {showSummary && (
+              <div className="scan-header-summary">
+                <ScanScoreCircle score={displayScore} size={110} strokeWidth={9} />
+                <div className="scan-summary-stats">
+                  <div className="scan-summary-stat is-total">
+                    <span className="scan-summary-stat-value">{totalRules ?? "—"}</span>
+                    <span className="scan-summary-stat-label">Total</span>
+                  </div>
+                  <div className="scan-summary-stat is-pass">
+                    <span className="scan-summary-stat-value">{passCount}</span>
+                    <span className="scan-summary-stat-label">Réussies</span>
+                  </div>
+                  <div className="scan-summary-stat is-fail">
+                    <span className="scan-summary-stat-value">{failCount}</span>
+                    <span className="scan-summary-stat-label">Échouées</span>
+                  </div>
+                  <div className="scan-summary-stat is-other">
+                    <span className="scan-summary-stat-value">{otherCount}</span>
+                    <span className="scan-summary-stat-label">Autres</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          <div style={{ display: "flex", gap: "0.75rem" }}>
+          <div className="scan-header-actions-slot">
             {status === "running" && (
               <button type="button" className="scan-stop-button" onClick={stop}>
                 Stopper le scan

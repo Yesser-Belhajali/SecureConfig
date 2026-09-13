@@ -1,5 +1,6 @@
 // features/scan/ui/RemediationRunScreen.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cancelActiveOperationOnUnload } from "../model/api";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useRemediationStream } from "../model/useRemediationStream";
 import ScanResultRow from "./ScanResultRow";
@@ -29,6 +30,21 @@ const badgeStyle: React.CSSProperties = {
   borderRadius: "999px",
   fontSize: "0.85rem",
   fontWeight: 600,
+};
+
+const rescanButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
+  padding: "0.55rem 1.1rem",
+  borderRadius: "0.5rem",
+  fontSize: "0.85rem",
+  fontWeight: 600,
+  color: "#fff",
+  background: "linear-gradient(135deg, #8b5cf6, #7c3aed)",
+  boxShadow: "0 8px 18px rgba(109,40,217,.28)",
+  border: "none",
+  cursor: "pointer",
 };
 
 function badgeColors(variant: "running" | "done" | "error" | "cancelled") {
@@ -74,7 +90,7 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
   const [remediationSeverityFilter, setRemediationSeverityFilter] = useState("all");
   const [remediationResultFilter, setRemediationResultFilter] = useState<(typeof REMEDIATION_RESULTS)[number]>("all");
 
-  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
+  const [selectedResult, setSelectedResult] = useState<RuleResult | null>(null);
   const [selectedForRemediation, setSelectedForRemediation] = useState<Set<string>>(
     () => new Set(failedRules.map((r) => r.id))
   );
@@ -83,6 +99,16 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const prevErrorRef = useRef<string | null>(null);
+
+
+  useEffect(() => {
+  if (status !== "running") return;
+  const handlePageHide = () => cancelActiveOperationOnUnload();
+  window.addEventListener("pagehide", handlePageHide);
+  return () => window.removeEventListener("pagehide", handlePageHide);
+}, [status]);
+
+
   useEffect(() => {
     if (errorMessage && errorMessage !== prevErrorRef.current) {
       prevErrorRef.current = errorMessage;
@@ -132,8 +158,6 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
     start(ids);
   };
 
-  // découpage basé sur le marqueur explicite remediation_start renvoyé par
-  // le backend, pas sur une position devinée
   const remediationStarted = remediationStartIndex !== null;
   const verificationPhase = remediationStarted ? results.slice(0, remediationStartIndex!) : results;
   const remediationPhase = remediationStarted ? results.slice(remediationStartIndex!) : [];
@@ -141,14 +165,24 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
   const fixedCount = remediationPhase.filter((r) => r.status === "FIXED").length;
   const remediationFailedCount = remediationPhase.length - fixedCount;
 
-  // taux de correction simple, pas une moyenne pondérée par weight : la
-  // remédiation porte sur un ensemble fixe de règles déjà en échec — 40
-  // corrigées sur 50 lancées = 80%, qui augmente au fil des events FIXED.
-  // totalRules vient du backend (event "total") -> plus fiable que
-  // launchedIds.length si jamais une règle envoyée n'était pas traitée
   const effectiveTotal = totalRules ?? launchedIds.length ?? 1;
   const liveFixRate = remediationStarted && effectiveTotal > 0 ? (fixedCount / effectiveTotal) * 100 : 0;
   const displayScore = status === "done" && score !== null ? score : liveFixRate;
+
+  const verificationDone = remediationStarted || status === "done" || status === "cancelled" || status === "error";
+  const remediationDone = status === "done" || status === "cancelled" || status === "error";
+
+  const verificationProgress = verificationDone
+    ? 100
+    : effectiveTotal
+      ? Math.min(99, Math.round((verificationPhase.length / effectiveTotal) * 100))
+      : 0;
+
+  const remediationProgress = remediationDone
+    ? 100
+    : effectiveTotal
+      ? Math.min(99, Math.round((remediationPhase.length / effectiveTotal) * 100))
+      : 0;
 
   const filteredVerification = useMemo(
     () =>
@@ -174,13 +208,6 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
     [remediationPhase, remediationSeverityFilter, remediationResultFilter, normalizedRemediationSearch]
   );
 
-  const selectedResult = selectedRuleId
-    ? (remediationPhase.find((r) => r.id === selectedRuleId) ??
-       verificationPhase.find((r) => r.id === selectedRuleId) ??
-       failedRules.find((r) => r.id === selectedRuleId) ??
-       null)
-    : null;
-
   const badgeVariant =
     status === "error"
       ? "error"
@@ -193,12 +220,18 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
     status === "error"
       ? "Erreur"
       : status === "cancelled"
-        ? "Remédiation arrêtée"
+        ? remediationStarted
+          ? "Remédiation arrêtée"
+          : "Scan arrêté"
         : !remediationStarted
           ? "Scan en cours"
           : status === "running"
             ? "Remédiation en cours"
             : "Remédiation terminée";
+
+  const showSummary = results.length > 0 && (status === "running" || status === "done" || status === "cancelled");
+  const showStopButton = launched && status === "running";
+  const showRescanButton = launched && remediationDone;
 
   return (
     <>
@@ -223,14 +256,55 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
       </div>
 
       <div className="scan-page">
-        <div className="scan-header-row scan-header-row--plain">
-          <h1>Remédiation</h1>
+        <h1 className="scan-page-title">Remédiation</h1>
 
-          {launched && status === "running" && (
-            <button type="button" className="scan-stop-button" onClick={cancel}>
-              Stopper la remédiation
-            </button>
-          )}
+        {/* même principe que ScanRunScreen : slot de gauche porte le titre
+            "Résultats", équilibre le slot d'actions à droite, le score
+            reste centré. */}
+        <div className="scan-header-row scan-header-row--plain">
+          <div className="scan-header-title-slot">
+            <h2 className="scan-header-title">Résultats</h2>
+          </div>
+
+          <div className="scan-header-summary-slot">
+            {showSummary && (
+              <div className="scan-header-summary">
+                <ScanScoreCircle score={displayScore} size={110} strokeWidth={9} />
+                <div className="scan-summary-stats">
+                  <div className="scan-summary-stat is-total">
+                    <span className="scan-summary-stat-value">{effectiveTotal}</span>
+                    <span className="scan-summary-stat-label">Total</span>
+                  </div>
+                  <div className="scan-summary-stat is-pass">
+                    <span className="scan-summary-stat-value">{fixedCount}</span>
+                    <span className="scan-summary-stat-label">Corrigées</span>
+                  </div>
+                  <div className="scan-summary-stat is-fail">
+                    <span className="scan-summary-stat-value">{remediationFailedCount}</span>
+                    <span className="scan-summary-stat-label">Échouées</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="scan-header-actions-slot">
+            {showStopButton && (
+              <button type="button" className="scan-stop-button" onClick={cancel}>
+                {remediationStarted ? "Stopper la remédiation" : "Stopper le scan"}
+              </button>
+            )}
+            {showRescanButton && (
+              <button
+                type="button"
+                style={rescanButtonStyle}
+                onClick={() => navigate(`/benchmarks/${benchmarkId}/profiles/${profileId}/scan`)}
+              >
+                <span aria-hidden="true">▶</span>
+                Re-scanner
+              </button>
+            )}
+          </div>
         </div>
 
         {!launched ? (
@@ -294,7 +368,7 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
                       />
                       <button
                         className="rule-row-main"
-                        onClick={() => setSelectedRuleId((c) => (c === r.id ? null : r.id))}
+                        onClick={() => setSelectedResult((current) => (current === r ? null : r))}
                       >
                         <span className="rule-severity-dot severity-high" aria-hidden="true" />
                         <span className="rule-title">{r.title}</span>
@@ -331,54 +405,58 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
           </>
         ) : (
           <>
-            {results.length > 0 && (
-              <div className="scan-summary-bar">
-                <ScanScoreCircle score={displayScore} size={128} strokeWidth={10} />
-                <div className="scan-summary-stats">
-                  <div className="scan-summary-stat is-total">
-                    <span className="scan-summary-stat-value">{effectiveTotal}</span>
-                    <span className="scan-summary-stat-label">Total</span>
-                  </div>
-                  <div className="scan-summary-stat is-pass">
-                    <span className="scan-summary-stat-value">{fixedCount}</span>
-                    <span className="scan-summary-stat-label">Corrigées</span>
-                  </div>
-                  <div className="scan-summary-stat is-fail">
-                    <span className="scan-summary-stat-value">{remediationFailedCount}</span>
-                    <span className="scan-summary-stat-label">Échouées</span>
-                  </div>
+            <section className="scan-controls" aria-label="Progression et filtres de vérification">
+              <div className="scan-progress-track" aria-hidden="true">
+                <span style={{ width: `${verificationProgress}%` }} />
+              </div>
+
+              {status === "running" && !remediationStarted && (
+                <div className="scan-in-progress">
+                  <span className="scan-in-progress-spinner" aria-hidden="true" />
+                  {verificationPhase.length > 0 ? (
+                    <span>
+                      Vérification en cours : <strong>{verificationPhase[verificationPhase.length - 1].title}</strong>
+                    </span>
+                  ) : (
+                    <span>Démarrage de la vérification...</span>
+                  )}
+                  <span className="scan-progress-count">
+                    ({verificationPhase.length} / {effectiveTotal})
+                  </span>
                 </div>
-              </div>
-            )}
+              )}
 
-            <section className="scan-controls" aria-label="Filtres de vérification">
-              <div className="rules-search">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Rechercher un résultat par nom..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  aria-label="Rechercher un résultat de vérification par nom"
-                />
-              </div>
+              {verificationDone && (
+                <>
+                  <div className="rules-search">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input
+                      type="text"
+                      placeholder="Rechercher un résultat par nom..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      aria-label="Rechercher un résultat de vérification par nom"
+                    />
+                  </div>
 
-              <div className="rules-filters" role="group" aria-label="Filtrer la vérification par sévérité">
-                <span>Sévérité</span>
-                {SEVERITIES.map((sev) => (
-                  <button
-                    key={sev}
-                    type="button"
-                    className={severityFilter === sev ? "is-selected" : ""}
-                    onClick={() => setSeverityFilter(sev)}
-                  >
-                    {sev === "all" ? "Toutes" : sev}
-                  </button>
-                ))}
-              </div>
+                  <div className="rules-filters" role="group" aria-label="Filtrer la vérification par sévérité">
+                    <span>Sévérité</span>
+                    {SEVERITIES.map((sev) => (
+                      <button
+                        key={sev}
+                        type="button"
+                        className={severityFilter === sev ? "is-selected" : ""}
+                        onClick={() => setSeverityFilter(sev)}
+                      >
+                        {sev === "all" ? "Toutes" : sev}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </section>
 
             <section className="scan-remediation-panel" aria-label="Résultats de vérification">
@@ -395,8 +473,8 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
                       title={r.title}
                       status={r.status}
                       severity={r.severity}
-                      isActive={r.id === selectedRuleId}
-                      onClick={() => setSelectedRuleId((c) => (c === r.id ? null : r.id))}
+                      isActive={r === selectedResult}
+                      onClick={() => setSelectedResult((current) => (current === r ? null : r))}
                     />
                   ))}
                 </div>
@@ -409,48 +487,72 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
                   <span>Remédiation</span>
                 </div>
 
-                <section className="scan-controls" aria-label="Filtres de remédiation">
-                  <div className="rules-search">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    <input
-                      type="text"
-                      placeholder="Rechercher un résultat de remédiation par nom..."
-                      value={remediationSearch}
-                      onChange={(e) => setRemediationSearch(e.target.value)}
-                      aria-label="Rechercher un résultat de remédiation par nom"
-                    />
+                <section className="scan-controls" aria-label="Progression et filtres de remédiation">
+                  <div className="scan-progress-track" aria-hidden="true">
+                    <span style={{ width: `${remediationProgress}%` }} />
                   </div>
 
-                  <div className="rules-filters" role="group" aria-label="Filtrer la remédiation par résultat">
-                    <span>Résultat</span>
-                    {REMEDIATION_RESULTS.map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        className={remediationResultFilter === r ? "is-selected" : ""}
-                        onClick={() => setRemediationResultFilter(r)}
-                      >
-                        {r === "all" ? "Tous" : r === "fixed" ? "Corrigé" : "Échoué"}
-                      </button>
-                    ))}
-                  </div>
+                  {status === "running" && (
+                    <div className="scan-in-progress">
+                      <span className="scan-in-progress-spinner" aria-hidden="true" />
+                      {remediationPhase.length > 0 ? (
+                        <span>
+                          Correction en cours : <strong>{remediationPhase[remediationPhase.length - 1].title}</strong>
+                        </span>
+                      ) : (
+                        <span>Démarrage de la correction...</span>
+                      )}
+                      <span className="scan-progress-count">
+                        ({remediationPhase.length} / {effectiveTotal})
+                      </span>
+                    </div>
+                  )}
 
-                  <div className="rules-filters" role="group" aria-label="Filtrer la remédiation par sévérité">
-                    <span>Sévérité</span>
-                    {SEVERITIES.map((sev) => (
-                      <button
-                        key={sev}
-                        type="button"
-                        className={remediationSeverityFilter === sev ? "is-selected" : ""}
-                        onClick={() => setRemediationSeverityFilter(sev)}
-                      >
-                        {sev === "all" ? "Toutes" : sev}
-                      </button>
-                    ))}
-                  </div>
+                  {remediationDone && (
+                    <>
+                      <div className="rules-search">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <circle cx="11" cy="11" r="8" />
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input
+                          type="text"
+                          placeholder="Rechercher un résultat de remédiation par nom..."
+                          value={remediationSearch}
+                          onChange={(e) => setRemediationSearch(e.target.value)}
+                          aria-label="Rechercher un résultat de remédiation par nom"
+                        />
+                      </div>
+
+                      <div className="rules-filters" role="group" aria-label="Filtrer la remédiation par résultat">
+                        <span>Résultat</span>
+                        {REMEDIATION_RESULTS.map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            className={remediationResultFilter === r ? "is-selected" : ""}
+                            onClick={() => setRemediationResultFilter(r)}
+                          >
+                            {r === "all" ? "Tous" : r === "fixed" ? "Corrigé" : "Échoué"}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="rules-filters" role="group" aria-label="Filtrer la remédiation par sévérité">
+                        <span>Sévérité</span>
+                        {SEVERITIES.map((sev) => (
+                          <button
+                            key={sev}
+                            type="button"
+                            className={remediationSeverityFilter === sev ? "is-selected" : ""}
+                            onClick={() => setRemediationSeverityFilter(sev)}
+                          >
+                            {sev === "all" ? "Toutes" : sev}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </section>
 
                 <section className="scan-remediation-panel" aria-label="Résultats de la remédiation">
@@ -464,8 +566,8 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
                           title={r.title}
                           status={r.status}
                           severity={r.severity}
-                          isActive={r.id === selectedRuleId}
-                          onClick={() => setSelectedRuleId((c) => (c === r.id ? null : r.id))}
+                          isActive={r === selectedResult}
+                          onClick={() => setSelectedResult((current) => (current === r ? null : r))}
                         />
                       ))
                     )}
@@ -476,7 +578,7 @@ export function RemediationRunScreen({ benchmarkId, profileId }: RemediationRunS
           </>
         )}
 
-        <RuleDetailPanel rule={selectedResult} onClose={() => setSelectedRuleId(null)} />
+        <RuleDetailPanel rule={selectedResult} onClose={() => setSelectedResult(null)} />
       </div>
 
       {confirmOpen && (

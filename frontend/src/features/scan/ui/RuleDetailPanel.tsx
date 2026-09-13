@@ -12,9 +12,10 @@ function isRuleResult(rule: Rule | RuleResult): rule is RuleResult {
   return "status" in rule;
 }
 
-function statusClass(status: string): "status-pass" | "status-fail" | "status-other" {
+function statusClass(status: string): "status-pass" | "status-fail" | "status-fixed" | "status-other" {
   if (status === "PASS") return "status-pass";
   if (status === "FAIL") return "status-fail";
+  if (status === "FIXED") return "status-fixed";
   return "status-other";
 }
 
@@ -29,7 +30,6 @@ function fixSystemLabel(system: string): string {
 export default function RuleDetailPanel({ rule, onClose }: RuleDetailPanelProps) {
   const [openFixes, setOpenFixes] = useState<Set<number>>(new Set());
 
-  // Réinitialise les remédiations dépliées à chaque changement de règle
   useEffect(() => {
     setOpenFixes(new Set());
   }, [rule]);

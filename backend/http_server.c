@@ -9,6 +9,7 @@
 #include "json_utils.h"
 #include "scan.h"
 #include "remediate.h"
+#include "active_operation.h"
 
 
 
@@ -446,6 +447,21 @@ static enum MHD_Result handle_request(void *cls,
             return ret;
         }
 
+        // EventSource ne peut pas lire un code de statut HTTP -> on répond
+        // en SSE valide (200 + un seul event "error") plutôt qu'un vrai 409,
+        // pour que le frontend distingue "occupé" d'une vraie erreur réseau
+        if (!active_operation_try_claim(ACTIVE_OP_SCAN, ctx)) {
+            scan_context_abort(ctx);
+            const char *busy_sse =
+                "data: {\"type\":\"error\",\"message\":\"Un scan ou une remédiation est déjà en cours.\"}\n\n";
+            struct MHD_Response *busy = MHD_create_response_from_buffer(strlen(busy_sse), (void *)busy_sse, MHD_RESPMEM_PERSISTENT);
+            MHD_add_response_header(busy, "Content-Type", "text/event-stream");
+            MHD_add_response_header(busy, "Access-Control-Allow-Origin", "*");
+            enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, busy);
+            MHD_destroy_response(busy);
+            return ret;
+        }
+
         scan_context_set_connection(ctx, connection);
 
         if (!scan_context_start(ctx)) {
@@ -554,12 +570,25 @@ static enum MHD_Result handle_request(void *cls,
         }
 
         struct remediate_context *rctx = remediate_context_new(benchmark_id, profile_id, rule_ids, rule_count);
-        free(rule_ids);      // remediate_context_new a dupliqué chaque chaîne individuellement
-        cJSON_Delete(json);  // idem — plus besoin du JSON parsé après la copie
+        free(rule_ids);
+        cJSON_Delete(json);
 
         if (rctx == NULL) {
             struct MHD_Response *err = MHD_create_response_from_buffer(0, "", MHD_RESPMEM_PERSISTENT);
             enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_INTERNAL_SERVER_ERROR, err);
+            MHD_destroy_response(err);
+            return ret;
+        }
+
+        // remédiation = fetch() côté frontend, pas EventSource -> un vrai
+        // 409 est lisible directement via response.status/response.ok
+        if (!active_operation_try_claim(ACTIVE_OP_REMEDIATE, rctx)) {
+            remediate_context_abort(rctx);
+            const char *msg = "{\"error\":\"Un scan ou une remédiation est déjà en cours.\"}";
+            struct MHD_Response *err = MHD_create_response_from_buffer(strlen(msg), (void *)msg, MHD_RESPMEM_PERSISTENT);
+            MHD_add_response_header(err, "Content-Type", "application/json");
+            MHD_add_response_header(err, "Access-Control-Allow-Origin", "*");
+            enum MHD_Result ret = MHD_queue_response(connection, 409, err);
             MHD_destroy_response(err);
             return ret;
         }
@@ -581,6 +610,20 @@ static enum MHD_Result handle_request(void *cls,
         MHD_add_response_header(sse_response, "Access-Control-Allow-Origin", "*");
         enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, sse_response);
         MHD_destroy_response(sse_response);
+        return ret;
+    }
+
+    // POST ou DELETE indifféremment : POST pour navigator.sendBeacon (qui ne
+    // supporte que POST, utilisé sur pagehide/fermeture d'onglet), DELETE
+    // pour l'appel explicite normal depuis le bouton "Stopper"
+    if ((strcmp(method, "DELETE") == 0 || strcmp(method, "POST") == 0) && strcmp(url, "/operations/current") == 0) {
+        active_operation_cancel();
+        const char *msg = "{\"cancelled\":true}";
+        struct MHD_Response *resp = MHD_create_response_from_buffer(strlen(msg), (void *)msg, MHD_RESPMEM_PERSISTENT);
+        MHD_add_response_header(resp, "Content-Type", "application/json");
+        MHD_add_response_header(resp, "Access-Control-Allow-Origin", "*");
+        enum MHD_Result ret = MHD_queue_response(connection, MHD_HTTP_OK, resp);
+        MHD_destroy_response(resp);
         return ret;
     }
 
@@ -737,6 +780,13 @@ static enum MHD_Result handle_request(void *cls,
 
 int main(void) {
     oscap_init();
+
+    bool dry_run = getenv("DRY_RUN_REMEDIATION") != NULL;
+    remediate_set_dry_run(dry_run);
+    printf(dry_run
+        ? "!! DRY-RUN ACTIVÉ : la remédiation ne modifiera PAS la machine !!\n"
+        : "Remédiation en mode normal (modifie réellement la machine).\n");
+
     struct MHD_Daemon *daemon = MHD_start_daemon(
         MHD_USE_INTERNAL_POLLING_THREAD | MHD_ALLOW_SUSPEND_RESUME,
         PORT,
@@ -754,17 +804,12 @@ int main(void) {
     printf("Appuie sur Entrée pour arrêter...\n");
     getchar();
 
-    printf("Arrêt en cours — annulation des scans/remédiations actifs...\n");
-    scan_shutdown_all();
-    remediate_shutdown_all();
+    printf("Arrêt en cours — annulation de l'opération active...\n");
+    active_operation_cancel();
 
-    // attend que tout se termine proprement avant MHD_stop_daemon — sinon
-    // abort garanti s'il reste ne serait-ce qu'une connexion suspendue.
-    // Timeout de sécurité : au-delà, on force l'arrêt quand même plutôt que
-    // de bloquer indéfiniment (ex: evaluate() bloqué sur un check OVAL lent)
     int waited_ms = 0;
     const int max_wait_ms = 10000;
-    while ((scan_shutdown_pending() || remediate_shutdown_pending()) && waited_ms < max_wait_ms) {
+    while (active_operation_is_busy() && waited_ms < max_wait_ms) {
         usleep(50 * 1000);
         waited_ms += 50;
     }

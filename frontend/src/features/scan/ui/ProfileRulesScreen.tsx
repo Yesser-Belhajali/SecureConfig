@@ -151,7 +151,7 @@ export function ProfileRulesScreen({ benchmarkId, mode }: ProfileRulesScreenProp
           <h2>{isCreate ? "Créer un profil personnalisé" : isViewOnly ? "Consulter le profil" : "Modifier le profil"}</h2>
 
           <div style={{ display: "flex", gap: "0.75rem" }}>
-            {profileId && (
+            {isViewOnly && profileId && (
               <button
                 type="button"
                 onClick={goToScan}

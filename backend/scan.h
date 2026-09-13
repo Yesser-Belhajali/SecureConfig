@@ -64,8 +64,7 @@ void consumer_finish(void *cls);
 
 ssize_t scan_reader_callback(void *cls, uint64_t pos, char *buf, size_t max);
 
-void scan_shutdown_all(void);
-bool scan_shutdown_pending(void);
+void scan_cancel(struct scan_context *ctx);
 
 
 #endif
